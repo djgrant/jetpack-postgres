@@ -1,11 +1,11 @@
-drop function if exists jetpack.on_before_upsert_node cascade;
-drop function if exists jetpack.on_update_node cascade;
+drop function if exists jetpack.task cascade;
+drop function if exists jetpack.on_update_task cascade;
 
-create function jetpack.on_before_upsert_node () returns trigger as $$
+create function jetpack.task () returns trigger as $$
 declare
   parent record;
 begin
-  select path into parent from jetpack.nodes where id = new.parent_id;
+  select path into parent from jetpack.tasks where id = new.parent_id;
   if parent.path is not null then
     new.path = parent.path || new.id::text::ltree;
   else
@@ -15,9 +15,9 @@ begin
 end
 $$ language plpgsql volatile;
 
-create function jetpack.on_update_node () returns trigger as $$
+create function jetpack.on_update_task () returns trigger as $$
 begin
-  update jetpack.nodes
+  update jetpack.tasks
   set path = new.path || subpath(path, nlevel(old.path))
   where old.path @> path
   and old.path != path;
@@ -25,17 +25,17 @@ begin
 end
 $$ language plpgsql volatile;
 
-create trigger before_insert_node
-before insert on jetpack.nodes
+create trigger before_insert_task
+before insert on jetpack.tasks
 for each row
-execute procedure jetpack.on_before_upsert_node();
+execute procedure jetpack.task();
 
-create trigger before_update_node
-before update on jetpack.nodes
+create trigger before_update_task
+before update on jetpack.tasks
 for each row when (old.parent_id is distinct from new.parent_id)
-execute procedure jetpack.on_before_upsert_node();
+execute procedure jetpack.task();
 
-create trigger after_update_node
-after update on jetpack.nodes
+create trigger after_update_task
+after update on jetpack.tasks
 for each row when (old.parent_id is distinct from new.parent_id)
-execute procedure jetpack.on_update_node();
+execute procedure jetpack.on_update_task();

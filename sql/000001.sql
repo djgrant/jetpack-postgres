@@ -5,7 +5,7 @@ create extension if not exists plv8;
 create schema if not exists jetpack;
 
 drop table if exists jetpack.machines cascade;
-drop table if exists jetpack.nodes cascade;
+drop table if exists jetpack.tasks cascade;
 drop table if exists jetpack.snapshots cascade;
 drop table if exists jetpack.actions cascade;
 
@@ -15,7 +15,7 @@ create table jetpack.machines (
   def jsonb not null
 );
 
-create table jetpack.nodes (
+create table jetpack.tasks (
   id bigserial primary key,
   name text not null,
   parent_id bigint,
@@ -30,7 +30,7 @@ create table jetpack.nodes (
 
 create table jetpack.actions (
   id bigserial primary key,
-  node_id bigint not null,
+  task_id bigint not null,
   type text not null,
   payload jsonb,
   previous_snapshot jsonb not null,

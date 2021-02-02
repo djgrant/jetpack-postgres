@@ -4,7 +4,7 @@ Jetpack is a high reliability platform for processing background tasks and runni
 
 Workflows are described using state machines that describe how tasks should transition between different states.
 
-State machines can be connected together to handle all manner of workflows and edge cases. The state machines are stored and evaluated in the persistence layer ensuring transitions are always executed, even following a total system failure. The entire state of the system can be introspected at any point in time, including moments past.
+State machines can be connected together to handle all manner of workflows and edge cases. The state machines are stored and evaluated in the persistence layer ensuring transitions are always executed, even following a total system failure. The entire state of the system can be introspected at any point in time, including moments past, enabling powerful debugging tools.
 
 ## Introduction
 
@@ -18,7 +18,7 @@ A set of states is described as an object:
 ```js
 {
   states: {
-    pending: {},
+    ready: {},
     failed: {},
     running: {},
     done: {}
@@ -26,12 +26,15 @@ A set of states is described as an object:
 }
 ```
 
-The transitions are describe in the form `EVENT: 'next-state'`.
+Transitions can be described in two forms:
+
+- `EVENT: NextState` where `NextState` is a string
+- `EVENT: Operation` where `Operation` is an object in the shape `{ type: "operationType", ...payload}`
 
 ```js
 {
   states: {
-    pending: {},
+    ready: {},
     running: {
       onEvent: {
         CANCEL: 'failed',
@@ -50,7 +53,7 @@ As well as being triggered by events, transitions can also be triggered whenever
 {
   states: {
     failed: {
-      onEnter: 'pending';
+      onEnter: "ready";
     }
   }
 }
@@ -72,66 +75,66 @@ Whenever the failed state is entered this machine immediately transitions to the
           },
           right: 5
         },
-        then: 'pending'
+        then: 'ready'
       }
     }
   }
 }
 ```
 
-Here, operators in the form `{ type: 'operator-type', ...payload }` are used to create a guard that only allows a transition when the node's iterations is >= 4.
+Here, operators in the form `{ type: "operatorType", ...payload }` are used to create a guard that only allows a transition when the node's iterations is >= 4.
 
-In the upcoming examples we'll see that typed helpers are provided to simplify the composition of operators.
+In the upcoming examples we'll discover provided typed helpers to simplify the composition of operators.
 
 ### A low-level example
 
 Starting with just the low-level `createMachine` function, let's take define a task machine that restarts whenever it fails or times out, up to 5 times.
 
 ```ts
-import { createMachine } from '@djgrant/jetpack';
+import { createMachine } from "@djgrant/jetpack";
 
-const taskMachine = await createMachine({
-  name: 'My task machine',
-  initial: 'pending',
+const taskMachine = createMachine({
+  name: "My task machine",
+  initial: "ready",
   states: {
-    pending: {
+    ready: {
       onEvent: {
-        LOCKED_BY_WORKER: 'running',
+        LOCKED_BY_WORKER: "running",
       },
     },
     running: {
       onEvent: {
-        ERROR: 'failed',
-        SUCCESS: 'done',
-        IDLE: 'idle',
+        ERROR: "failed",
+        SUCCESS: "done",
+        IDLE: "idle",
       },
     },
     failed: {
       onEnter: {
-        type: 'cond',
+        type: "cond",
         when: {
-          type: 'lte',
+          type: "lte",
           left: {
-            type: 'context',
-            path: 'iterations',
+            type: "context",
+            path: "iterations",
           },
           right: 5,
         },
-        then: 'pending',
+        then: "ready",
       },
     },
     idle: {
       onEnter: {
-        type: 'cond',
+        type: "cond",
         when: {
-          type: 'lte',
+          type: "lte",
           left: {
-            type: 'context',
-            path: 'iterations',
+            type: "context",
+            path: "iterations",
           },
           right: 5,
         },
-        then: 'pending',
+        then: "ready",
       },
     },
     done: {},
@@ -139,34 +142,33 @@ const taskMachine = await createMachine({
 });
 ```
 
-> 💡 Workers looks for tasks in a `pending` state to lock (that is, to take off the queue and execute). Whenever this task is locked by a worker, it receives a `LOCKED_BY_WORKER` event and transitions to the `running` state.
+> 💡 Workers looks for tasks in a `ready` state to lock (that is, to take off the queue and execute). Whenever this task is locked by a worker, it receives a `LOCKED_BY_WORKER` event and transitions to the `running` state.
 
 ### Using operators to describe transitions
 
-The above code is very verbose and exactly the kind of code we don't want to be writing by hand. Instead, we can use the provided operators to clean it up.
+The previous code sample is very verbose and exactly the kind of code we don't want to be writing by hand. Instead, we can use the provided operators to clean it up.
 
 ```ts
-import { createMachine, operators } from '@djgrant/jetpack';
-const { retry } = operators;
+import { createMachine, ops } from "@djgrant/jetpack";
 
-const taskMachine = await createMachine({
-  name: 'My task machine',
-  initial: 'pending',
+const taskMachine = createMachine({
+  name: "My task machine",
+  initial: "ready",
   states: {
-    pending: {
+    ready: {
       onEvent: {
-        LOCKED_BY_WORKER: 'running',
+        LOCKED_BY_WORKER: "running",
       },
     },
     running: {
       onEvent: {
-        ERROR: 'failed',
-        SUCCESS: 'done',
-        IDLE: 'idle',
+        ERROR: "failed",
+        SUCCESS: "done",
+        IDLE: "idle",
       },
     },
-    failed: { onEnter: retry(5) },
-    idle: { onEnter: retry(5) },
+    failed: { onEnter: ops.retry(5) },
+    idle: { onEnter: ops.retry(5) },
     done: {},
   },
 });
@@ -175,11 +177,10 @@ const taskMachine = await createMachine({
 The `retry` operator itself is a composition of other operators:
 
 ```ts
-import { operators } from '@djgrant/jetpack';
-const { cond, lte, context } = operators;
+import { ops } from "@djgrant/jetpack";
 
 const retry = (maxAttempts: number) =>
-  cond(lte(context('iterations'), 5), 'running');
+  ops.cond(ops.lte(ops.context("iterations"), 5), "running");
 ```
 
 ### Simplifying task machines
@@ -191,8 +192,8 @@ Instead, we can use `createTaskMachine`, which has standard task transitions set
 ```ts
 import { createTaskMachine } from "@djgrant/jetpack";
 
-const taskMachine = await createTaskMachine({
-  name: 'My task machine'
+const taskMachine = createTaskMachine({
+  name: 'My task'
   maxAttempts: 5
 });
 ```
@@ -204,50 +205,137 @@ Now that we've abstracted the state machine away what exactly is the benefit of 
 Let's create a task machine which uses the `scheduleTask` operator to schedule a new task once it reaches the `done` state.
 
 ```ts
-import { createTaskMachine, createTask, operators } from "@djgrant/jetpack";
-const { scheduleTask } = operators;
+// machines.ts
+import { createTaskMachine, createTask, ops } from "@djgrant/jetpack";
 
-export const nextTaskMachine = await createTaskMachine({
-  name: 'My next task',
-  maxAttempts: 2
+export const nextTaskMachine = createTaskMachine({
+  name: "My next task",
+  maxAttempts: 2,
 });
 
-export const taskMachine = await createTaskMachine({
-  name: 'My task machine'
+export const taskMachine = createTaskMachine({
+  name: "My task",
   maxAttempts: 5,
   states: {
     done: {
-      onEnter: scheduleTask({
-        name: 'Sub Task',
-        machine: nextTaskMachine
-      })
-    }
-  }
+      onEnter: ops.scheduleTask({
+        machine: nextTaskMachine,
+      }),
+    },
+  },
 });
 ```
 
 And, voila, we now have a workflow.
 
-### Responding to state machines
+### Enqueing tasks
 
-Now that we have a state machine defined we need to:
-
-1. Create an instance of our root machine (called a task)
-1. Define handlers that get run whenever a machine's task enters the `running` state
+A task is simply an instance of a state machine.
 
 ```ts
-import { taskMachine, nextTaskMachine } from './my-machines';
+// run-tasks.ts
+import { taskMachine } from "./machines";
 
-await taskMachine.create({
-  name: 'My task',
-  delayFor: '1 hour',
-});
+async function runTasks() {
+  await taskMachine.createTask();
+}
+```
+
+When a task is created it is given an initial state of `pending` which makes it available for workers to pick up and process.
+
+### Responding to state machines
+
+Now that tasks are getting created we need to define handlers for them. These handlers will get run whenever a machine's task enters the `running` state
+
+```ts
+// worker.ts
+import { taskMachine, nextTaskMachine } from "./machines";
 
 taskMachine.onRunning(async () => {
   // do work
 });
 
-nextTaskMachine.onRunning('path/to/file');
+nextTaskMachine.onRunning("path/to/file");
+```
+
+### Running workers
+
+In order to execute tasks, a worker must do two things:
+
+1. On initialisation, save the state machines to the database ensuring the tasks are processed correctly (machines are processed in the database so must be stored there)
+2. When a task moves into the `ready` state, lock onto it (thereby triggering a transition to the `running` state), and execute the task handler
+
+```ts
+import { runWorker } from "@djgrant/jetpack";
+import { taskMachine, nextTaskMachine } from "./machines";
+
+runWorker({
+  machines: [taskMachine, nextTaskMachine],
+});
+```
+
+> 💡 Saving machines is an idempotent operation: it can be done multiple times and from different services with the same result.
+
+### Enqueing tasks from other services
+
+Tasks can be enqueued from other services (e.g. a web server).
+
+```ts
+// server.ts
+import { assignTodoMachine } from "./worker";
+
+app.post("todo/:todoId/assign/:assignedUserId", (req, res) => {
+  const { todoId, assignedUserId } = req.params;
+  await db.query("UPDATE todos SET assignee TO $1 WHERE id = $2", [
+    assignedUserId,
+    todoId,
+  ]);
+  await assignTodoMachine.createTask({
+    params: { todoId, assignedUserId },
+  });
+  res.send(204);
+});
+```
+
+```ts
+// worker.ts
+import { createTaskMachine, runWorker } from "@djgrant/jetpack";
+
+const assignTodoMachine = createTaskMachine({
+  name: "email_new_todo_assignee",
+  maxAttempts: 5,
+});
+
+assignTodoMachine.onRunning(async ({ params }) => {
+  const { todoId, assignedUserId } = params;
+  // get todo and user details
+  // send email
+});
+
+runWorker({
+  machines: [assignTodoMachine],
+});
+```
+
+### Enqueing tasks in database triggers
+
+An alternative approach to the previous example is to enqueue tasks in a database trigger that fires whenever the assigned user is updated.
+
+```sql
+create function on_update_todo_assigned_to returns trigger as $$
+declare
+  params jsonb;
+begin
+  params = jsonb_build_object('todoId', new.id, 'assignedUserId', new.assigned_to);
+  perform jetpack.createTask(machine_name := 'email_new_todo_assignee', params := params);
+end
+$$ language plpsql volatile;
+
+create trigger after_todo_set_assigned
+before insert on todos
+for each row
+when old.assigned_to != new.assigned_to
+execute procedure on_update_todo_assigned_to();
 ```
 
 ### Visualising workflows
@@ -255,7 +343,7 @@ nextTaskMachine.onRunning('path/to/file');
 Once the state machines have been created in the database, they can introspected.
 
 ```bash
-$ npx jetpack viz
+$ npx jetpack viz src/machines.ts
 
 Generated visualiation of jetpack workflow: http://localhost:4329
 ```

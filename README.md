@@ -82,13 +82,13 @@ Whenever the failed state is entered this machine immediately transitions to the
 }
 ```
 
-Here, operators in the form `{ type: "operatorType", ...payload }` are used to create a guard that only allows a transition when the node's iterations is >= 4.
+Here, a combination of the `condition` `lte` and `context` operators are used to create a guard that only allows a transition when the node's iterations is >= 4.
 
-In the upcoming examples we'll discover provided typed helpers to simplify the composition of operators.
+In the upcoming examples we'll discover jetpack ships with a collection of operation helpers, which help simplify the composition of operators.
 
 ### A low-level example
 
-Starting with just the low-level `createMachine` function, let's take define a task machine that restarts whenever it fails or times out, up to 5 times.
+Starting with the low-level `createMachine` function, let's define a task machine that restarts whenever it fails, up to 5 times. This example will start out very verbose, but don't worry, we'll refactor as we go along!
 
 ```ts
 import { createMachine } from "@djgrant/jetpack";
@@ -106,24 +106,9 @@ const taskMachine = createMachine({
       onEvent: {
         ERROR: "failed",
         SUCCESS: "done",
-        IDLE: "idle",
       },
     },
     failed: {
-      onEnter: {
-        type: "cond",
-        when: {
-          type: "lte",
-          left: {
-            type: "context",
-            path: "iterations",
-          },
-          right: 5,
-        },
-        then: "ready",
-      },
-    },
-    idle: {
       onEnter: {
         type: "cond",
         when: {
@@ -146,7 +131,7 @@ const taskMachine = createMachine({
 
 ### Using operators to describe transitions
 
-The previous code sample is very verbose and exactly the kind of code we don't want to be writing by hand. Instead, we can use the provided operators to clean it up.
+The previous code sample is exactly the kind of code we don't want to be writing by hand. So, instead, we can use the provided operators to clean it up.
 
 ```ts
 import { createMachine, ops } from "@djgrant/jetpack";
@@ -164,11 +149,9 @@ const taskMachine = createMachine({
       onEvent: {
         ERROR: "failed",
         SUCCESS: "done",
-        IDLE: "idle",
       },
     },
     failed: { onEnter: ops.retry(5) },
-    idle: { onEnter: ops.retry(5) },
     done: {},
   },
 });
@@ -185,7 +168,7 @@ const retry = (maxAttempts: number) =>
 
 ### Simplifying task machines
 
-This is easier to read but it's still code that we'll end up writing for every task.
+The example is now easier to read but there's still boilerplate we'll end up writing for every task.
 
 Instead, we can use `createTaskMachine`, which has standard task transitions set by default.
 
@@ -202,7 +185,7 @@ const taskMachine = createTaskMachine({
 
 Now that we've abstracted the state machine away what exactly is the benefit of using one? State machines allow us to create more advanced workflows with runtime guarantees.
 
-Let's create a task machine which uses the `scheduleTask` operator to schedule a new task once it reaches the `done` state.
+Let's create a task machine which uses `ops.createTask` to enqueue a new task once it reaches the `done` state.
 
 ```ts
 // machines.ts
@@ -218,7 +201,7 @@ export const taskMachine = createTaskMachine({
   maxAttempts: 5,
   states: {
     done: {
-      onEnter: ops.scheduleTask({
+      onEnter: ops.createTask({
         machine: nextTaskMachine,
       }),
     },
@@ -242,6 +225,8 @@ async function runTasks() {
 ```
 
 When a task is created it is given an initial state of `pending` which makes it available for workers to pick up and process.
+
+> 💡 Note that `Machine.createTask` is different to `ops.createTask`. The latter generates a static operator (it is merely an instruction), while the former actually creates a task at runtime.
 
 ### Responding to state machines
 
@@ -302,7 +287,7 @@ app.post("todo/:todoId/assign/:assignedUserId", (req, res) => {
 import { createTaskMachine, runWorker } from "@djgrant/jetpack";
 
 const assignTodoMachine = createTaskMachine({
-  name: "email_new_todo_assignee",
+  name: "Email new todo assignee",
   maxAttempts: 5,
 });
 
@@ -327,7 +312,7 @@ declare
   params jsonb;
 begin
   params = jsonb_build_object('todoId', new.id, 'assignedUserId', new.assigned_to);
-  perform jetpack.createTask(machine_name := 'email_new_todo_assignee', params := params);
+  return query select * from jetpack.createTask(machine_name := 'Email new todo assignee', params := params);
 end
 $$ language plpsql volatile;
 
@@ -347,3 +332,96 @@ $ npx jetpack viz src/machines.ts
 
 Generated visualiation of jetpack workflow: http://localhost:4329
 ```
+
+## Workflows
+
+Operators, which describe what should happen on a certain event, unlock the power of workflows.
+
+In the next example we'll create a workflow for booking a holiday. When the user books the holiday, a car and a hotel both must be booked. But, if one of the transactions failed, the other should be cancelled.
+
+```ts
+import { createMachine, ops, late } from "@djgrant/jetpack";
+
+// Note: we're just using `createMachine` here as there is no actual task to process
+// This machine is transitory, it merely glues together transitions between other machines
+export const bookHoliday = createMachine({
+  name: "Book holiday",
+  states: {
+    ready: {
+      // Multiple operations can be defined in an array
+      onEnter: [
+        ops.createTask({
+          // `late` enables us to reference machines that have yet to be declared
+          machine: late(() => bookCar),
+        }),
+        ops.createTask({
+          machine: late(() => bookHotel),
+        }),
+        "done",
+      ],
+    },
+    done: {
+      onEvent: {
+        // Built in events (might need a bit more thought)
+        ALL_DESCENDANTS_DONE: ops.createRootTask({
+          machine: late(() => onBookingSuccess),
+        }),
+        ALL_DESCENDANTS_DONE_OR_FAILED: ops.createRootTask({
+          machine: late(() => onBookingFailure,
+        }),
+      },
+    },
+  },
+});
+
+// Create a base machine for bookCar and bookHotel's common functionality
+export const bookHolidayComponent = createTaskMachine({
+  name: "Book holiday component",
+  states: {
+    pending: {
+      onEvent: {
+        UNDO: "done",
+      },
+    },
+    error: {
+      onEnter: ops.dispatchEventToSiblings("UNDO"),
+    },
+    running: {
+      onEvent: {
+        // We only want to undo successful tasks so
+        // let the task finish running before this event is processed
+        UNDO: ops.deferEventUntilNextTransition(),
+      },
+    },
+  },
+});
+
+export const bookCar = bookHolidayComponent.extend({
+  name: "Book car",
+  states: {
+    done: {
+      onEvent: {
+        UNDO: ops.createTask({ machine: cancelCar }),
+      },
+    },
+  },
+});
+
+export const bookHotel = bookHolidayComponent.extend({
+  name: "Book hotel",
+  states: {
+    done: {
+      onEvent: {
+        UNDO: ops.createTask({ machine: cancelHotel }),
+      },
+    },
+  },
+});
+
+export const cancelCar = createTaskMachine("Cancel car booking");
+export const cancelHotel = createTaskMachine("Cancel hotel booking");
+export const onBookingSuccess = createTaskMachine("Booking complete");
+export const onBookingFailure = createTaskMachine("Booking complete");
+```
+
+> 💡 When processing this workflow we can use the `context` object, which is passed between tasks, to access information about the booking request.

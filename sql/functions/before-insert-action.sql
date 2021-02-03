@@ -13,10 +13,10 @@ create function jetpack.before_insert_action() returns trigger as $$
   if (!machine) return NEW;
 
   var transitions = machine.def[task.status] && machine.def[task.status].onEvent && machine.def[task.status].onEvent[type];
-  plv8.elog(ERROR, JSON.stringify(machine.def));
   if (!transitions) return NEW;
   
   for (var transition of [].concat(transitions)) {
+    // TODO
   }
 
   var [updated_task] = task_query.execute([task_id]);

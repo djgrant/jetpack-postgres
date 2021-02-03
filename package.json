@@ -9,13 +9,18 @@
     "dist"
   ],
   "scripts": {
-    "start": "node scripts/watch-sql & tsdx watch",
+    "start": "node scripts/watch-sql",
     "build": "tsdx build",
     "test": "tsdx test",
     "lint": "tsdx lint",
     "prepare": "tsdx build"
   },
+  "dependencies": {
+    "pg": "^8.5.1"
+  },
   "devDependencies": {
+    "@types/pg": "^7.14.9",
+    "chokidar": "^3.5.1",
     "husky": "^4.3.8",
     "tsdx": "^0.14.1",
     "tslib": "^2.1.0",
@@ -25,8 +30,5 @@
     "hooks": {
       "pre-commit": "tsdx lint"
     }
-  },
-  "dependencies": {
-    "pg": "^8.5.1"
   }
 }

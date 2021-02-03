@@ -1,7 +1,7 @@
-drop schema if exists jetpack cascade;
-
 create extension if not exists ltree;
 create extension if not exists plv8;
+
+drop schema jetpack cascade;
 create schema if not exists jetpack;
 
 drop table if exists jetpack.machines cascade;

@@ -24,6 +24,7 @@
     "@types/uuid": "^8.3.0",
     "chokidar": "^3.5.1",
     "husky": "^4.3.8",
+    "require-from-string": "^2.0.2",
     "tsdx": "^0.14.1",
     "tslib": "^2.1.0",
     "typescript": "^4.1.3"

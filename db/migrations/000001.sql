@@ -17,7 +17,6 @@ create table jetpack.machines (
 
 create table jetpack.tasks (
   id bigserial primary key,
-  name text not null,
   parent_id bigint,
   machine_id uuid not null references jetpack.machines(id),
   path ltree,

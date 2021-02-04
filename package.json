@@ -9,6 +9,7 @@
     "dist"
   ],
   "scripts": {
+    "demo": "examples/example.ts",
     "start": "node scripts/watch-sql",
     "build": "tsdx build",
     "test": "tsdx test",

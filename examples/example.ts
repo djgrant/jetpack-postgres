@@ -1,3 +1,4 @@
+#!/usr/bin/env ts-node-script
 import { createMachine, runWorker } from "../src";
 
 const taskMachine = createMachine({

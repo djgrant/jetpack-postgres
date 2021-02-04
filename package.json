@@ -9,12 +9,12 @@
     "dist"
   ],
   "scripts": {
-    "demo": "examples/example.ts",
-    "start": "node scripts/watch-sql",
     "build": "tsdx build",
-    "test": "tsdx test",
+    "demo": "examples/example.ts",
     "lint": "tsdx lint",
-    "prepare": "tsdx build"
+    "prepare": "tsdx build",
+    "test": "tsdx test",
+    "watch": "tsdx watch & node scripts/watch-sql"
   },
   "dependencies": {
     "pg": "^8.5.1",

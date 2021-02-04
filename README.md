@@ -29,7 +29,7 @@ A set of states is described as an object:
 Transitions can be described in two forms:
 
 - `EVENT: NextState` where `NextState` is a string
-- `EVENT: Operation` where `Operation` is an object in the shape `{ type: "operationType", ...payload}`
+- `EVENT: Operation` where `Operation` is an object in the shape `{ type: OperatorType, ...payload}`
 
 ```js
 {
@@ -110,7 +110,7 @@ const taskMachine = createMachine({
     },
     failed: {
       onEnter: {
-        type: "cond",
+        type: "condition",
         when: {
           type: "lte",
           left: {

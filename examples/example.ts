@@ -18,7 +18,7 @@ const taskMachine = createMachine({
     },
     failed: {
       onEnter: {
-        type: "cond",
+        type: "condition",
         when: {
           type: "lte",
           left: {

@@ -6,7 +6,6 @@ create schema if not exists jetpack;
 
 drop table if exists jetpack.machines cascade;
 drop table if exists jetpack.tasks cascade;
-drop table if exists jetpack.snapshots cascade;
 drop table if exists jetpack.actions cascade;
 
 create table jetpack.machines (
@@ -23,7 +22,7 @@ create table jetpack.tasks (
   path ltree,
   params jsonb not null default '{}',
   context jsonb not null default '{}',
-  status text not null,
+  state text not null,
   attempts int not null
 );
 
@@ -33,7 +32,7 @@ create table jetpack.actions (
   type text not null,
   payload jsonb,
   operation jsonb not null,
-  previous_snapshot jsonb not null,
-  snapshot jsonb not null,
+  previous_state text not null,
+  new_state text not null,
   timestamp timestamptz not null default now()
 );

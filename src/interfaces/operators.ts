@@ -24,7 +24,7 @@ export type EffectOperator =
   | string
   | NoOpOperator
   | IncrementAttemptsOperator
-  | ChangeStatusOperator
+  | ChangeStateOperator
   | CreateTaskOperator
   | CreateRootTaskOperator
   | DispatchActionToRootOperator
@@ -83,7 +83,7 @@ export interface EqOperator extends ComparisonBase {
 }
 
 export interface NotEqOperator extends ComparisonBase {
-  type: "not-eq";
+  type: "not_eq";
 }
 
 // Getter
@@ -104,39 +104,39 @@ export interface AttemptsOperator extends Base {
 // Effects
 
 export interface NoOpOperator extends Base {
-  type: "no-op";
+  type: "no_op";
 }
 
-export interface ChangeStatusOperator extends Base {
-  type: "change-status";
-  newStatus: string;
+export interface ChangeStateOperator extends Base {
+  type: "change_state";
+  new_state: string;
 }
 
 export interface IncrementAttemptsOperator extends Base {
-  type: "increment-attempts";
+  type: "increment_attempts";
 }
 
 export interface CreateTaskOperator extends Base {
-  type: "create-task";
+  type: "create_task";
   machine: string;
 }
 
 export interface CreateRootTaskOperator extends Base {
-  type: "create-root-task";
+  type: "create_root_task";
   machine: string;
 }
 
 export interface DispatchActionToRootOperator extends Base {
-  type: "dispatch-action-to-root";
+  type: "dispatch_action_to_root";
   action: string;
 }
 
 export interface DispatchActionToParentOperator extends Base {
-  type: "dispatch-action-to-parent";
+  type: "dispatch_action_to_parent";
   action: string;
 }
 
 export interface DispatchActionToSiblingsOperator extends Base {
-  type: "dispatch-action-to-siblings";
+  type: "dispatch_action_to_siblings";
   action: string;
 }

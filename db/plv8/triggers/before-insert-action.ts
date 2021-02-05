@@ -24,13 +24,14 @@ export default function beforeInsertAction() {
     throw new Error(`Task ${task_id} does not exist`);
   }
 
-  NEW.snapshot = task;
+  NEW.previous_state = task.state;
+  NEW.new_state = task.state;
   NEW.operation = ops.noOp();
 
   const [machine] = transitionsQuery.execute([task.machine_id]);
   if (!machine) return NEW;
 
-  const operation = machine.transitions[task.status]?.onEvent?.[type];
+  const operation = machine.transitions[task.state]?.onEvent?.[type];
   if (!operation) return NEW;
 
   const effectOperator = evaluateOperator(operation, task);
@@ -38,7 +39,7 @@ export default function beforeInsertAction() {
 
   const updatedTask = updateTask(effectedTask);
 
-  NEW.snapshot = updatedTask;
+  NEW.new_state = updatedTask.state;
   NEW.operation = effectOperator;
 
   return NEW;

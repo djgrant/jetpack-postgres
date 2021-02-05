@@ -1,8 +1,8 @@
 -- Generated current migration
 
-drop function if exists jetpack.after_status_change cascade;
+drop function if exists jetpack.after_state_change cascade;
 
-create function jetpack.after_status_change() returns trigger as $$
+create function jetpack.after_state_change() returns trigger as $$
   var module = (function () {
   'use strict';
 
@@ -11,30 +11,30 @@ create function jetpack.after_status_change() returns trigger as $$
       dispatchActionQuery.execute([taskId, action]);
   }
 
-  function afterTaskStatusChange() {
+  function afterTaskstateChange() {
       var _a, _b;
       var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
       var machine = transitionsQuery.execute([NEW.machine_id])[0];
       if (!machine)
           return NEW;
-      var onEnterOperation = (_b = (_a = machine.transitions[NEW.status]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
+      var onEnterOperation = (_b = (_a = machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
       if (!onEnterOperation)
           return NEW;
       dispatchAction(NEW.id, "ENTER");
   }
 
-  return afterTaskStatusChange;
+  return afterTaskstateChange;
 
 }());
 
  return module();
 $$ language plv8 volatile;
 
-create trigger after_status_change
+create trigger after_state_change
 after update on jetpack.tasks
 for each row
-when (old.status is distinct from new.status)
-execute procedure jetpack.after_status_change();
+when (old.state is distinct from new.state)
+execute procedure jetpack.after_state_change();
 
 
 drop function if exists jetpack.after_update_task cascade;
@@ -64,18 +64,22 @@ create function jetpack.before_insert_action() returns trigger as $$
 
     const ops = {
         noOp: () => ({
-            type: "no-op",
+            type: "no_op",
         }),
         value: (value) => ({
             type: "value",
             value,
+        }),
+        changeState: (newState) => ({
+            type: "change_state",
+            new_state: newState,
         }),
     };
 
     function evaluateOperator(operator, task) {
         function evalOp(op) {
             if (typeof op === "string") {
-                return { type: "change-status", newStatus: op };
+                return ops.changeState(op);
             }
             if (op.type === "condition") {
                 var when = evalOp(op.when);
@@ -127,14 +131,14 @@ create function jetpack.before_insert_action() returns trigger as $$
 
     function runEffect(op, task) {
         if (typeof op === "string") {
-            task.status = op;
+            task.state = op;
             return task;
         }
-        if (op.type === "change-status") {
-            task.status = op.newStatus;
+        if (op.type === "change_state") {
+            task.state = op.new_state;
             return task;
         }
-        if (op.type === "increment-attempts") {
+        if (op.type === "increment_attempts") {
             task.attempts = task.attempts + 1;
             return task;
         }
@@ -142,10 +146,10 @@ create function jetpack.before_insert_action() returns trigger as $$
     }
 
     function updateTask(task) {
-        var updateTaskQuery = plv8.prepare("\n    update jetpack.tasks \n    set context = $1, status = $2, attempts = $3 \n    where id = $4\n    returning *\n    ", ["jsonb", "text", "int", "bigint"]);
+        var updateTaskQuery = plv8.prepare("\n    update jetpack.tasks \n    set context = $1, state = $2, attempts = $3 \n    where id = $4\n    returning *\n    ", ["jsonb", "text", "int", "bigint"]);
         var updatedTask = updateTaskQuery.execute([
             task.context,
-            task.status,
+            task.state,
             task.attempts,
             task.id,
         ])[0];
@@ -161,18 +165,19 @@ create function jetpack.before_insert_action() returns trigger as $$
         if (!task) {
             throw new Error("Task " + task_id + " does not exist");
         }
-        NEW.snapshot = task;
+        NEW.previous_state = task.state;
+        NEW.new_state = task.state;
         NEW.operation = ops.noOp();
         var machine = transitionsQuery.execute([task.machine_id])[0];
         if (!machine)
             return NEW;
-        var operation = (_b = (_a = machine.transitions[task.status]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b[type];
+        var operation = (_b = (_a = machine.transitions[task.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b[type];
         if (!operation)
             return NEW;
         var effectOperator = evaluateOperator(operation, task);
         var effectedTask = runEffect(effectOperator, task);
         var updatedTask = updateTask(effectedTask);
-        NEW.snapshot = updatedTask;
+        NEW.new_state = updatedTask.state;
         NEW.operation = effectOperator;
         return NEW;
     }
@@ -228,7 +233,7 @@ create function jetpack.create_task(
   with machine as (
     select initial from jetpack.machines where id = machine_id
   )
-  insert into jetpack.tasks (machine_id, parent_id, params, context, status, attempts)
+  insert into jetpack.tasks (machine_id, parent_id, params, context, state, attempts)
   values (machine_id, parent_id, params, context, (select initial from machine), 0)
   returning *;
 $$ language sql volatile;
@@ -237,10 +242,7 @@ $$ language sql volatile;
 drop function if exists jetpack.dispatch_action cascade;
 
 create function jetpack.dispatch_action(task_id bigint, action_type text, payload jsonb default null) returns jetpack.actions as $$
-  with current_snapshot as (
-    select to_jsonb(t) as snapshot from jetpack.tasks t where t.id = task_id order by id desc limit 1
-  )
-  insert into jetpack.actions (type, task_id, payload, previous_snapshot) 
-  values (action_type, task_id, payload, (select snapshot from current_snapshot)) 
+  insert into jetpack.actions (type, task_id, payload) 
+  values (action_type, task_id, payload)
   returning *;
 $$ language sql volatile;

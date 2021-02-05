@@ -13,7 +13,7 @@ const taskMachine = createMachine({
     running: {
       onEvent: {
         ENTER: {
-          type: "increment-attempts",
+          type: "increment_attempts",
         },
         ERROR: "failed",
         SUCCESS: "done",

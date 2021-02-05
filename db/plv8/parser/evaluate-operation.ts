@@ -13,7 +13,7 @@ export function evaluateOperator(
 ): EffectOperator {
   function evalOp(op: Operator): Operator {
     if (typeof op === "string") {
-      return { type: "change-status", newStatus: op };
+      return ops.changeState(op);
     }
 
     if (op.type === "condition") {

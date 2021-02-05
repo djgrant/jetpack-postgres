@@ -9,7 +9,7 @@ create function jetpack.create_task(
   with machine as (
     select initial from jetpack.machines where id = machine_id
   )
-  insert into jetpack.tasks (machine_id, parent_id, params, context, status, attempts)
+  insert into jetpack.tasks (machine_id, parent_id, params, context, state, attempts)
   values (machine_id, parent_id, params, context, (select initial from machine), 0)
   returning *;
 $$ language sql volatile;

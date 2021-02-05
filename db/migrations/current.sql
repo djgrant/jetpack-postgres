@@ -125,27 +125,31 @@ create function jetpack.before_insert_action() returns trigger as $$
         throw new Error("Condition must ulimately return a value type");
     }
 
-    function incrementAttempts(taskId) {
-        var incrementQuery = plv8.prepare("update jetpack.tasks set attempts = attempts + 1 where id = $1", ["bigint"]);
-        incrementQuery.execute([taskId]);
-    }
-
-    function updateStatus(taskId, newStatus) {
-        var updateStatusQuery = plv8.prepare("update jetpack.tasks set status = $1 where id = $2", ["text", "bigint"]);
-        updateStatusQuery.execute([newStatus, taskId]);
-    }
-
     function runEffect(op, task) {
         if (typeof op === "string") {
-            updateStatus(task.id, op);
-            return;
+            task.status = op;
+            return task;
         }
         if (op.type === "change-status") {
-            updateStatus(task.id, op.newStatus);
+            task.status = op.newStatus;
+            return task;
         }
         if (op.type === "increment-attempts") {
-            incrementAttempts(task.id);
+            task.attempts = task.attempts + 1;
+            return task;
         }
+        return task;
+    }
+
+    function updateTask(task) {
+        var updateTaskQuery = plv8.prepare("\n    update jetpack.tasks \n    set context = $1, status = $2, attempts = $3 \n    where id = $4\n    returning *\n    ", ["jsonb", "text", "int", "bigint"]);
+        var updatedTask = updateTaskQuery.execute([
+            task.context,
+            task.status,
+            task.attempts,
+            task.id,
+        ])[0];
+        return updatedTask;
     }
 
     function beforeInsertAction() {
@@ -166,8 +170,8 @@ create function jetpack.before_insert_action() returns trigger as $$
         if (!operation)
             return NEW;
         var effectOperator = evaluateOperator(operation, task);
-        runEffect(effectOperator, task);
-        var updatedTask = taskQuery.execute([task_id])[0];
+        var effectedTask = runEffect(effectOperator, task);
+        var updatedTask = updateTask(effectedTask);
         NEW.snapshot = updatedTask;
         NEW.operation = effectOperator;
         return NEW;

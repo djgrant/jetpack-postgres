@@ -17,17 +17,18 @@ const taskMachine = createMachine({
       },
     },
     failed: {
-      onEnter: {
-        type: "condition",
-        when: {
-          type: "lte",
-          left: {
-            type: "context",
-            path: "iterations",
+      onEvent: {
+        ENTER: {
+          type: "condition",
+          when: {
+            type: "lte",
+            left: {
+              type: "iterations",
+            },
+            right: 5,
           },
-          right: 5,
+          then: "ready",
         },
-        then: "ready",
       },
     },
     done: {},

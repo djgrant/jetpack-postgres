@@ -20,11 +20,7 @@ export function evaluateOperator(
       const when = evalOp(op.when);
       if (!isValueOperator(when)) throwValueOpError();
       const isPass = Boolean(when.value);
-      return isPass
-        ? evalOp(op.then)
-        : op.else
-        ? evalOp(op.else)
-        : { type: "no-op" };
+      return isPass ? evalOp(op.then) : op.else ? evalOp(op.else) : ops.noOp();
     }
 
     if (op.type === "lte") {
@@ -32,7 +28,10 @@ export function evaluateOperator(
       const right = evalComparable(op.right);
       if (!isValueOperator(left)) throwValueOpError();
       if (!isValueOperator(right)) throwValueOpError();
-      return ops.value(left.value === right.value);
+      if (typeof left.value !== "number" || typeof right.value !== "number") {
+        return ops.value(false);
+      }
+      return ops.value(left.value <= right.value);
     }
 
     if (op.type === "params") {
@@ -41,6 +40,10 @@ export function evaluateOperator(
 
     if (op.type === "context") {
       return ops.value(task.params[op.path]);
+    }
+
+    if (op.type === "iterations") {
+      return ops.value(task.iterations);
     }
 
     return op;

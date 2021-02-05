@@ -1,5 +1,56 @@
 -- Generated current migration
 
+drop function if exists jetpack.after_status_change cascade;
+
+create function jetpack.after_status_change() returns trigger as $$
+  var module = (function () {
+  'use strict';
+
+  function afterTaskStatusChange() {
+      var _a, _b;
+      var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
+      var machine = transitionsQuery.execute([NEW.machine_id])[0];
+      if (!machine)
+          return NEW;
+      var onEnterOperation = (_b = (_a = machine.transitions[NEW.status]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
+      if (!onEnterOperation)
+          return NEW;
+      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
+      dispatchActionQuery.execute([NEW.id, "ENTER"]);
+  }
+
+  return afterTaskStatusChange;
+
+}());
+
+ return module();
+$$ language plv8 volatile;
+
+create trigger after_status_change
+after update on jetpack.tasks
+for each row
+when (old.status is distinct from new.status)
+execute procedure jetpack.after_status_change();
+
+drop function if exists jetpack.after_update_task cascade;
+
+-- not sure what this is for
+create function jetpack.after_update_task () returns trigger as $$
+begin
+  update jetpack.tasks
+  set path = new.path || subpath(path, nlevel(old.path))
+  where old.path @> path
+  and old.path != path;
+  return new;
+end
+$$ language plpgsql volatile;
+
+create trigger after_update_task
+after update on jetpack.tasks
+for each row when (old.parent_id is distinct from new.parent_id)
+execute procedure jetpack.after_update_task();
+
+
 drop function if exists jetpack.before_insert_action cascade;
 
 create function jetpack.before_insert_action() returns trigger as $$
@@ -7,6 +58,9 @@ create function jetpack.before_insert_action() returns trigger as $$
     'use strict';
 
     const ops = {
+        noOp: () => ({
+            type: "no-op",
+        }),
         value: (value) => ({
             type: "value",
             value,
@@ -23,11 +77,7 @@ create function jetpack.before_insert_action() returns trigger as $$
                 if (!isValueOperator(when))
                     throwValueOpError();
                 var isPass = Boolean(when.value);
-                return isPass
-                    ? evalOp(op.then)
-                    : op["else"]
-                        ? evalOp(op["else"])
-                        : { type: "no-op" };
+                return isPass ? evalOp(op.then) : op["else"] ? evalOp(op["else"]) : ops.noOp();
             }
             if (op.type === "lte") {
                 var left = evalComparable(op.left);
@@ -36,13 +86,19 @@ create function jetpack.before_insert_action() returns trigger as $$
                     throwValueOpError();
                 if (!isValueOperator(right))
                     throwValueOpError();
-                return ops.value(left.value === right.value);
+                if (typeof left.value !== "number" || typeof right.value !== "number") {
+                    return ops.value(false);
+                }
+                return ops.value(left.value <= right.value);
             }
             if (op.type === "params") {
                 return ops.value(task.params[op.path]);
             }
             if (op.type === "context") {
                 return ops.value(task.params[op.path]);
+            }
+            if (op.type === "iterations") {
+                return ops.value(task.iterations);
             }
             return op;
         }
@@ -72,7 +128,7 @@ create function jetpack.before_insert_action() returns trigger as $$
         }
     }
 
-    function beforeInsertAction () {
+    function beforeInsertAction() {
         var _a, _b;
         var type = NEW.type, task_id = NEW.task_id;
         var taskQuery = plv8.prepare("select * from jetpack.tasks where id = $1", ["bigint"]);
@@ -82,6 +138,7 @@ create function jetpack.before_insert_action() returns trigger as $$
             throw new Error("Task " + task_id + " does not exist");
         }
         NEW.snapshot = task;
+        NEW.operation = ops.noOp();
         var machine = transitionsQuery.execute([task.machine_id])[0];
         if (!machine)
             return NEW;
@@ -92,6 +149,7 @@ create function jetpack.before_insert_action() returns trigger as $$
         runEffect(effectOperator, task);
         var updatedTask = taskQuery.execute([task_id])[0];
         NEW.snapshot = updatedTask;
+        NEW.operation = effectOperator;
         return NEW;
     }
 
@@ -107,10 +165,9 @@ before insert on jetpack.actions
 for each row
 execute procedure jetpack.before_insert_action();
 
-drop function if exists jetpack.before_update_task cascade;
-drop function if exists jetpack.on_update_task cascade;
+drop function if exists jetpack.before_upsert_task cascade;
 
-create function jetpack.before_update_task () returns trigger as $$
+create function jetpack.before_upsert_task () returns trigger as $$
 declare
   parent record;
 begin
@@ -124,30 +181,15 @@ begin
 end
 $$ language plpgsql volatile;
 
-create function jetpack.on_update_task () returns trigger as $$
-begin
-  update jetpack.tasks
-  set path = new.path || subpath(path, nlevel(old.path))
-  where old.path @> path
-  and old.path != path;
-  return new;
-end
-$$ language plpgsql volatile;
-
 create trigger before_insert_task
 before insert on jetpack.tasks
 for each row
-execute procedure jetpack.before_update_task();
+execute procedure jetpack.before_upsert_task();
 
 create trigger before_update_task
 before update on jetpack.tasks
 for each row when (old.parent_id is distinct from new.parent_id)
-execute procedure jetpack.before_update_task();
-
-create trigger after_update_task
-after update on jetpack.tasks
-for each row when (old.parent_id is distinct from new.parent_id)
-execute procedure jetpack.on_update_task();
+execute procedure jetpack.before_upsert_task();
 
 
 drop function if exists jetpack.create_task cascade;

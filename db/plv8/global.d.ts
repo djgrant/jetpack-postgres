@@ -23,11 +23,12 @@ declare global {
 }
 
 interface Plv8 {
-  elog: (level: string, message: string) => void;
+  elog: (level: string, ...messages: any[]) => void;
   prepare: <Result = any>(
     query: string,
     params: string[]
   ) => {
     execute: (params: any[]) => [Result];
   };
+  find_function: <F = Function>(fnName: string) => F;
 }

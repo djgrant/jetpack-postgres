@@ -53,7 +53,9 @@ As well as being triggered by events, transitions can also be triggered whenever
 {
   states: {
     failed: {
-      onEnter: "ready";
+      onEvent: {
+        ENTER: "ready";
+      }
     }
   }
 }
@@ -65,17 +67,19 @@ Whenever the failed state is entered this machine immediately transitions to the
 {
   states: {
     failed: {
-      onEnter: {
-        type: 'condition',
-        when: {
-          type: 'lte',
-          left: {
-            type: 'context',
-            path: 'iterations'
+      onEvent: {
+        ENTER: {
+          type: 'condition',
+          when: {
+            type: 'lte',
+            left: {
+              type: 'context',
+              path: 'iterations'
+            },
+            right: 5
           },
-          right: 5
-        },
-        then: 'ready'
+          then: 'ready'
+        }
       }
     }
   }
@@ -109,17 +113,19 @@ const taskMachine = createMachine({
       },
     },
     failed: {
-      onEnter: {
-        type: "condition",
-        when: {
-          type: "lte",
-          left: {
-            type: "context",
-            path: "iterations",
+      onEvent: {
+        ENTER: {
+          type: "condition",
+          when: {
+            type: "lte",
+            left: {
+              type: "context",
+              path: "iterations",
+            },
+            right: 5,
           },
-          right: 5,
+          then: "ready",
         },
-        then: "ready",
       },
     },
     done: {},
@@ -151,7 +157,11 @@ const taskMachine = createMachine({
         SUCCESS: "done",
       },
     },
-    failed: { onEnter: ops.retry(5) },
+    failed: {
+      onEvent: {
+        ENTER: ops.retry(5),
+      },
+    },
     done: {},
   },
 });
@@ -201,9 +211,11 @@ export const taskMachine = createTaskMachine({
   maxAttempts: 5,
   states: {
     done: {
-      onEnter: ops.createTask({
-        machine: nextTaskMachine,
-      }),
+      onEvent: {
+        ENTER: ops.createTask({
+          machine: nextTaskMachine,
+        }),
+      },
     },
   },
 });
@@ -348,17 +360,19 @@ export const bookHoliday = createMachine({
   name: "Book holiday",
   states: {
     ready: {
-      // Multiple operations can be defined in an array
-      onEnter: [
-        ops.createTask({
-          // `late` enables us to reference machines that have yet to be declared
-          machine: late(() => bookCar),
-        }),
-        ops.createTask({
-          machine: late(() => bookHotel),
-        }),
-        "done",
-      ],
+      onEvent: {
+        // Multiple operations can be defined in an array
+        ENTER: [
+          ops.createTask({
+            // `late` enables us to reference machines that have yet to be declared
+            machine: late(() => bookCar),
+          }),
+          ops.createTask({
+            machine: late(() => bookHotel),
+          }),
+          "done",
+        ],
+      }
     },
     done: {
       onEvent: {
@@ -384,7 +398,9 @@ export const bookHolidayComponent = createTaskMachine({
       },
     },
     error: {
-      onEnter: ops.dispatchEventToSiblings("UNDO"),
+      onEvent: {
+        ENTER: ops.dispatchEventToSiblings("UNDO"),
+      }
     },
     running: {
       onEvent: {

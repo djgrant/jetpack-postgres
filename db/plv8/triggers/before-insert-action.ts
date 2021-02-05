@@ -1,9 +1,9 @@
-import { MachineRow, ActionRow, TaskRow } from "@djgrant/jetpack";
+import { MachineRow, ActionRow, TaskRow, ops } from "@djgrant/jetpack";
 import { evaluateOperator, runEffect } from "../lib";
 
 declare const NEW: ActionRow;
 
-export default function() {
+export default function beforeInsertAction() {
   const { type, task_id } = NEW;
 
   const taskQuery = plv8.prepare<TaskRow>(
@@ -23,6 +23,7 @@ export default function() {
   }
 
   NEW.snapshot = task;
+  NEW.operation = ops.noOp();
 
   const [machine] = transitionsQuery.execute([task.machine_id]);
   if (!machine) return NEW;
@@ -35,5 +36,6 @@ export default function() {
 
   const [updatedTask] = taskQuery.execute([task_id]);
   NEW.snapshot = updatedTask;
+  NEW.operation = effectOperator;
   return NEW;
 }

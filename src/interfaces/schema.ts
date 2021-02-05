@@ -1,4 +1,5 @@
 import { Transitions } from "./machine";
+import { EffectOperator } from "./operators";
 
 export interface MachineRow {
   id: string; // uuid
@@ -12,8 +13,9 @@ export interface ActionRow {
   task_id: string; // bigint
   type: string;
   payload: Record<string, any>;
-  previous_snapshot: Record<string, any>;
-  snapshot: Record<string, any>;
+  previous_snapshot: TaskRow;
+  snapshot: TaskRow;
+  operation: EffectOperator;
   timestamp: Date;
 }
 

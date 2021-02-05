@@ -33,6 +33,7 @@ create table jetpack.actions (
   task_id bigint not null,
   type text not null,
   payload jsonb,
+  operation jsonb not null,
   previous_snapshot jsonb not null,
   snapshot jsonb not null,
   timestamp timestamptz not null default now()

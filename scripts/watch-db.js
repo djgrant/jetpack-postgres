@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 const { promises: fs } = require("fs");
 const path = require("path");
 const chokidar = require("chokidar");
@@ -43,6 +42,8 @@ async function runMigration(changedFile) {
 async function updateCurrentMigration(changedFile) {
   let dirname = path.join(changedFile, "../");
   if (dirname.startsWith("plv8")) dirname = "functions";
+
+  console.log("Recompiling the current migration...");
 
   const filenames = await fs.readdir(path.join(paths.db, dirname));
 

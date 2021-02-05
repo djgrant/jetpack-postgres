@@ -1,18 +1,23 @@
 import { Pool } from "pg";
-import { Machine } from "./interfaces";
+import { MachineRow } from "./interfaces";
 
-export async function upsertMachines(machines: Machine[], pool: Pool) {
+export async function upsertMachines(machines: MachineRow[], pool: Pool) {
   const query = `
-    insert into jetpack.machines (id, name, def) 
-    values ($1, $2, $3)
+    insert into jetpack.machines (id, name, initial, transitions) 
+    values ($1, $2, $3, $4)
     on conflict (id) 
     do update set 
       name = excluded.name,
-      def = excluded.def;
+      transitions = excluded.transitions;
   `;
 
   for (const machine of machines) {
-    await pool.query(query, [machine.id, machine.name, machine.def]);
+    await pool.query(query, [
+      machine.id,
+      machine.name,
+      machine.initial,
+      machine.transitions,
+    ]);
     console.log(`Updated machine "${machine.name}"`);
   }
 }

@@ -1,18 +1,14 @@
-import { Operator } from "./operators";
+import { EffectOperator, LogicalOperator } from "./operators";
 
-export interface Machine {
-  id: string;
-  name: string;
-  def: MachineDef;
-}
-
-export interface MachineDef {
+export interface Transitions {
   [state: string]: {
     onEvent?: TransitionMap;
-    onEnter?: TransitionMap;
+    onEnter?: Operation;
   };
 }
 
 export interface TransitionMap {
-  [action: string]: Operator;
+  [action: string]: Operation;
 }
+
+export type Operation = EffectOperator | LogicalOperator;

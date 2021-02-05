@@ -1,9 +1,9 @@
-import { ConnectionOpts, Machine } from "./interfaces";
+import { ConnectionOpts, MachineRow } from "./interfaces";
 import { getPool } from "./utils";
 import { upsertMachines } from "./queries";
 
 interface BaseOpts {
-  machines: Machine[];
+  machines: MachineRow[];
 }
 
 export function runWorker(opts: BaseOpts & ConnectionOpts) {

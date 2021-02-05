@@ -4,9 +4,8 @@
     "rootDir": "./",
     "strict": true,
     "noImplicitAny": true,
-    "noImplicitReturns": true,
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "skipLibCheck": true
+    "paths": {
+      "@djgrant/jetpack": ["../../src"]
+    }
   }
 }

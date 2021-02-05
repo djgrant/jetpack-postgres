@@ -1,5 +1,5 @@
 #!/usr/bin/env ts-node-script
-import { createMachine, runWorker } from "../src";
+import { createMachine, runWorker } from "@djgrant/jetpack";
 
 const taskMachine = createMachine({
   name: "Task machine",

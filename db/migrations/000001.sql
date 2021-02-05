@@ -12,7 +12,8 @@ drop table if exists jetpack.actions cascade;
 create table jetpack.machines (
   id uuid primary key,
   name text not null,
-  def jsonb not null
+  initial text not null,
+  transitions jsonb not null
 );
 
 create table jetpack.tasks (

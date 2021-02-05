@@ -1,4 +1,5 @@
 import { MachineRow, TaskRow } from "@djgrant/jetpack";
+import { dispatchAction } from "../queries";
 
 declare const NEW: TaskRow;
 
@@ -14,10 +15,5 @@ export default function afterTaskStatusChange() {
   const onEnterOperation = machine.transitions[NEW.status]?.onEvent?.ENTER;
   if (!onEnterOperation) return NEW;
 
-  const dispatchActionQuery = plv8.prepare(
-    "select * from jetpack.dispatch_action($1, $2)",
-    ["bigint", "text"]
-  );
-
-  dispatchActionQuery.execute([NEW.id, "ENTER"]);
+  dispatchAction(NEW.id, "ENTER");
 }

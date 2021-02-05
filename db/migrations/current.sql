@@ -6,6 +6,11 @@ create function jetpack.after_status_change() returns trigger as $$
   var module = (function () {
   'use strict';
 
+  function dispatchAction(taskId, action) {
+      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
+      dispatchActionQuery.execute([taskId, action]);
+  }
+
   function afterTaskStatusChange() {
       var _a, _b;
       var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
@@ -15,8 +20,7 @@ create function jetpack.after_status_change() returns trigger as $$
       var onEnterOperation = (_b = (_a = machine.transitions[NEW.status]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
       if (!onEnterOperation)
           return NEW;
-      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
-      dispatchActionQuery.execute([NEW.id, "ENTER"]);
+      dispatchAction(NEW.id, "ENTER");
   }
 
   return afterTaskStatusChange;
@@ -31,6 +35,7 @@ after update on jetpack.tasks
 for each row
 when (old.status is distinct from new.status)
 execute procedure jetpack.after_status_change();
+
 
 drop function if exists jetpack.after_update_task cascade;
 
@@ -97,8 +102,8 @@ create function jetpack.before_insert_action() returns trigger as $$
             if (op.type === "context") {
                 return ops.value(task.params[op.path]);
             }
-            if (op.type === "iterations") {
-                return ops.value(task.iterations);
+            if (op.type === "attempts") {
+                return ops.value(task.attempts);
             }
             return op;
         }
@@ -120,11 +125,26 @@ create function jetpack.before_insert_action() returns trigger as $$
         throw new Error("Condition must ulimately return a value type");
     }
 
+    function incrementAttempts(taskId) {
+        var incrementQuery = plv8.prepare("update jetpack.tasks set attempts = attempts + 1 where id = $1", ["bigint"]);
+        incrementQuery.execute([taskId]);
+    }
+
+    function updateStatus(taskId, newStatus) {
+        var updateStatusQuery = plv8.prepare("update jetpack.tasks set status = $1 where id = $2", ["text", "bigint"]);
+        updateStatusQuery.execute([newStatus, taskId]);
+    }
+
     function runEffect(op, task) {
-        if (typeof op === "string" || op.type === "change-status") {
-            var updateStatusQuery = plv8.prepare("update jetpack.tasks set status = $1 where id = $2", ["text", "bigint"]);
-            var newStatus = typeof op === "string" ? op : op.newStatus;
-            updateStatusQuery.execute([newStatus, task.id]);
+        if (typeof op === "string") {
+            updateStatus(task.id, op);
+            return;
+        }
+        if (op.type === "change-status") {
+            updateStatus(task.id, op.newStatus);
+        }
+        if (op.type === "increment-attempts") {
+            incrementAttempts(task.id);
         }
     }
 
@@ -165,6 +185,7 @@ before insert on jetpack.actions
 for each row
 execute procedure jetpack.before_insert_action();
 
+
 drop function if exists jetpack.before_upsert_task cascade;
 
 create function jetpack.before_upsert_task () returns trigger as $$
@@ -203,10 +224,11 @@ create function jetpack.create_task(
   with machine as (
     select initial from jetpack.machines where id = machine_id
   )
-  insert into jetpack.tasks (machine_id, parent_id, params, context, status, iterations)
+  insert into jetpack.tasks (machine_id, parent_id, params, context, status, attempts)
   values (machine_id, parent_id, params, context, (select initial from machine), 0)
   returning *;
 $$ language sql volatile;
+
 
 drop function if exists jetpack.dispatch_action cascade;
 

@@ -27,6 +27,6 @@ export interface TaskRow {
   params: Record<string, any>;
   context: Record<string, any>;
   status: string;
-  iterations: number;
+  attempts: number;
   locked: boolean;
 }

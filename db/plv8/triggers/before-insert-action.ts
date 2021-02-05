@@ -1,5 +1,6 @@
 import { MachineRow, ActionRow, TaskRow, ops } from "@djgrant/jetpack";
-import { evaluateOperator, runEffect } from "../lib";
+import { evaluateOperator } from "../parser";
+import { runEffect } from "../interpreter";
 
 declare const NEW: ActionRow;
 

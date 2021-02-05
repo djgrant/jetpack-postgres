@@ -24,8 +24,7 @@ create table jetpack.tasks (
   params jsonb not null default '{}',
   context jsonb not null default '{}',
   status text not null,
-  iterations int not null,
-  locked boolean not null default false
+  attempts int not null
 );
 
 create table jetpack.actions (

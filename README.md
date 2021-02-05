@@ -72,10 +72,7 @@ Whenever the failed state is entered this machine immediately transitions to the
           type: 'condition',
           when: {
             type: 'lte',
-            left: {
-              type: 'context',
-              path: 'iterations'
-            },
+            left: { type: 'attempts' },
             right: 5
           },
           then: 'ready'
@@ -86,7 +83,7 @@ Whenever the failed state is entered this machine immediately transitions to the
 }
 ```
 
-Here, a combination of the `condition` `lte` and `context` operators are used to create a guard that only allows a transition when the node's iterations is >= 4.
+Here, a combination of the `condition` `lte` and `attempts` operators are used to create a guard that only allows a transition when the node's attempts is >= 4.
 
 In the upcoming examples we'll discover jetpack ships with a collection of operation helpers, which help simplify the composition of operators.
 
@@ -118,10 +115,7 @@ const taskMachine = createMachine({
           type: "condition",
           when: {
             type: "lte",
-            left: {
-              type: "context",
-              path: "iterations",
-            },
+            left: { type: "attempts" },
             right: 5,
           },
           then: "ready",
@@ -173,7 +167,7 @@ The `retry` operator itself is a composition of other operators:
 import { ops } from "@djgrant/jetpack";
 
 const retry = (maxAttempts: number) =>
-  ops.cond(ops.lte(ops.context("iterations"), 5), "running");
+  ops.cond(ops.lte(ops.attempts(), 5), "running");
 ```
 
 ### Simplifying task machines
@@ -372,7 +366,7 @@ export const bookHoliday = createMachine({
           }),
           "done",
         ],
-      }
+      },
     },
     done: {
       onEvent: {
@@ -381,7 +375,7 @@ export const bookHoliday = createMachine({
           machine: late(() => onBookingSuccess),
         }),
         ALL_DESCENDANTS_DONE_OR_FAILED: ops.createRootTask({
-          machine: late(() => onBookingFailure,
+          machine: late(() => onBookingFailure),
         }),
       },
     },
@@ -400,7 +394,7 @@ export const bookHolidayComponent = createTaskMachine({
     error: {
       onEvent: {
         ENTER: ops.dispatchEventToSiblings("UNDO"),
-      }
+      },
     },
     running: {
       onEvent: {

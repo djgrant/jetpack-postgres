@@ -42,8 +42,8 @@ export function evaluateOperator(
       return ops.value(task.params[op.path]);
     }
 
-    if (op.type === "iterations") {
-      return ops.value(task.iterations);
+    if (op.type === "attempts") {
+      return ops.value(task.attempts);
     }
 
     return op;

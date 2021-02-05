@@ -12,6 +12,9 @@ const taskMachine = createMachine({
     },
     running: {
       onEvent: {
+        ENTER: {
+          type: "increment-attempts",
+        },
         ERROR: "failed",
         SUCCESS: "done",
       },
@@ -23,15 +26,17 @@ const taskMachine = createMachine({
           when: {
             type: "lte",
             left: {
-              type: "iterations",
+              type: "attempts",
             },
             right: 5,
           },
           then: "ready",
+          else: "abandoned",
         },
       },
     },
     done: {},
+    abandoned: {},
   },
 });
 

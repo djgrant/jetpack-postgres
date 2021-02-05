@@ -18,11 +18,12 @@ export type ComparisonOperator =
 export type GetterOperator =
   | ParamsOperator
   | ContextOperator
-  | IterationsOperator;
+  | AttemptsOperator;
 
 export type EffectOperator =
   | string
   | NoOpOperator
+  | IncrementAttemptsOperator
   | ChangeStatusOperator
   | CreateTaskOperator
   | CreateRootTaskOperator
@@ -96,8 +97,8 @@ export interface ContextOperator extends Base {
   path: string;
 }
 
-export interface IterationsOperator extends Base {
-  type: "iterations";
+export interface AttemptsOperator extends Base {
+  type: "attempts";
 }
 
 // Effects
@@ -109,6 +110,10 @@ export interface NoOpOperator extends Base {
 export interface ChangeStatusOperator extends Base {
   type: "change-status";
   newStatus: string;
+}
+
+export interface IncrementAttemptsOperator extends Base {
+  type: "increment-attempts";
 }
 
 export interface CreateTaskOperator extends Base {

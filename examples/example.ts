@@ -1,5 +1,5 @@
 #!/usr/bin/env ts-node-script
-import { createMachine, runWorker } from "@djgrant/jetpack";
+import { createMachine, runWorker, ops } from "@djgrant/jetpack";
 
 const taskMachine = createMachine({
   name: "Demo task",
@@ -35,7 +35,13 @@ const taskMachine = createMachine({
         },
       },
     },
-    done: {},
+    done: {
+      onEvent: {
+        ENTER: ops.createTask({
+          machine: ops.self(),
+        }),
+      },
+    },
     abandoned: {},
   },
 });

@@ -1,5 +1,6 @@
 import {
   ChangeStateOperator,
+  CreateTaskOperator,
   NoOpOperator,
   Primitive,
   ValueOperator,
@@ -16,5 +17,12 @@ export const ops = {
   changeState: (newState: string): ChangeStateOperator => ({
     type: "change_state",
     new_state: newState,
+  }),
+  createTask: (opts: { machine: { id: string } }): CreateTaskOperator => ({
+    type: "create_task",
+    machine_id: opts.machine.id,
+  }),
+  self: () => ({
+    id: "$self",
   }),
 };

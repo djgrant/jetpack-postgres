@@ -1,6 +1,5 @@
 import { MachineRow, ActionRow, TaskRow, ops } from "@djgrant/jetpack";
-import { evaluateOperator } from "../parser";
-import { runEffect } from "../interpreter";
+import { evaluateOperator, runEffect } from "../interpreter";
 import { updateTask } from "../queries/update-task";
 
 declare const NEW: ActionRow;
@@ -37,9 +36,11 @@ export default function beforeInsertAction() {
   const effectOperator = evaluateOperator(operation, task);
   const effectedTask = runEffect(effectOperator, task);
 
-  const updatedTask = updateTask(effectedTask);
+  if (effectedTask) {
+    const updatedTask = updateTask(effectedTask);
+    NEW.new_state = updatedTask.state;
+  }
 
-  NEW.new_state = updatedTask.state;
   NEW.operation = effectOperator;
 
   return NEW;

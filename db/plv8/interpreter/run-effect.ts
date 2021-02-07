@@ -1,4 +1,5 @@
 import { EffectOperator, TaskRow } from "@djgrant/jetpack";
+import { createTask } from "../queries/create-task";
 
 export function runEffect(op: EffectOperator, task: TaskRow) {
   if (typeof op === "string") {
@@ -16,5 +17,10 @@ export function runEffect(op: EffectOperator, task: TaskRow) {
     return task;
   }
 
-  return task;
+  if (op.type === "create_task") {
+    createTask({
+      machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
+    });
+    return;
+  }
 }

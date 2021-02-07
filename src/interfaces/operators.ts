@@ -118,12 +118,12 @@ export interface IncrementAttemptsOperator extends Base {
 
 export interface CreateTaskOperator extends Base {
   type: "create_task";
-  machine: string;
+  machine_id: string;
 }
 
 export interface CreateRootTaskOperator extends Base {
   type: "create_root_task";
-  machine: string;
+  machine_id: string;
 }
 
 export interface DispatchActionToRootOperator extends Base {

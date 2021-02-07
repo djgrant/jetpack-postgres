@@ -74,6 +74,13 @@ create function jetpack.before_insert_action() returns trigger as $$
             type: "change_state",
             new_state: newState,
         }),
+        createTask: (opts) => ({
+            type: "create_task",
+            machine_id: opts.machine.id,
+        }),
+        self: () => ({
+            id: "$self",
+        }),
     };
 
     function evaluateOperator(operator, task) {
@@ -129,6 +136,17 @@ create function jetpack.before_insert_action() returns trigger as $$
         throw new Error("Condition must ulimately return a value type");
     }
 
+    function createTask(task) {
+        var createTaskQuery = plv8.prepare("select * from jetpack.create_task($1, $2, $3, $4)", ["uuid", "bigint", "jsonb", "jsonb"]);
+        var newTask = createTaskQuery.execute([
+            task.machine_id,
+            task.parent_id,
+            task.params || {},
+            task.context || {},
+        ])[0];
+        return newTask;
+    }
+
     function runEffect(op, task) {
         if (typeof op === "string") {
             task.state = op;
@@ -142,7 +160,12 @@ create function jetpack.before_insert_action() returns trigger as $$
             task.attempts = task.attempts + 1;
             return task;
         }
-        return task;
+        if (op.type === "create_task") {
+            createTask({
+                machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
+            });
+            return;
+        }
     }
 
     function updateTask(task) {
@@ -176,8 +199,10 @@ create function jetpack.before_insert_action() returns trigger as $$
             return NEW;
         var effectOperator = evaluateOperator(operation, task);
         var effectedTask = runEffect(effectOperator, task);
-        var updatedTask = updateTask(effectedTask);
-        NEW.new_state = updatedTask.state;
+        if (effectedTask) {
+            var updatedTask = updateTask(effectedTask);
+            NEW.new_state = updatedTask.state;
+        }
         NEW.operation = effectOperator;
         return NEW;
     }

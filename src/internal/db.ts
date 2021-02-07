@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { ConnectionOpts } from "./interfaces";
+import { ConnectionOpts } from "../interfaces";
 
 export function getPool(opts: ConnectionOpts) {
   let pool: Pool;
@@ -9,8 +9,4 @@ export function getPool(opts: ConnectionOpts) {
     pool = new Pool(opts.db);
   }
   return pool;
-}
-
-export function log(msg: any, ...rest: any[]) {
-  console.log(`[Jetpack]: ${msg}`, ...rest);
 }

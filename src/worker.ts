@@ -1,16 +1,17 @@
 import { Pool } from "pg";
 import { v4 as uuidV4 } from "uuid";
 import { ConnectionOpts, TaskRow } from "./interfaces";
-import { getPool, log } from "./utils";
-import { getNextTask, upsertMachines } from "./queries";
-import { POLL_INTERVAL } from "./config";
+import { getPool } from "./internal/db";
+import { log } from "./internal/utils";
+import { getNextTask, upsertMachines } from "./internal/queries";
+import { POLL_INTERVAL } from "./internal/config";
 import { Machine } from "./machine";
 
 interface BaseOpts {
   machines: Machine[];
 }
 
-type RunWorkerOpts = BaseOpts & ConnectionOpts;
+export type RunWorkerOpts = BaseOpts & ConnectionOpts;
 
 export function runWorker(opts: RunWorkerOpts) {
   const WORKER_ID = uuidV4();

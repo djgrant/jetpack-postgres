@@ -1,8 +1,8 @@
 import { Pool } from "pg";
 import { v5 as uuidV5 } from "uuid";
 import { MachineRow, TaskRow, Transitions } from "./interfaces";
-import { dispatchAction } from "./queries";
-import { log } from "./utils";
+import { dispatchAction } from "./internal/queries";
+import { log } from "./internal/utils";
 
 interface Opts {
   name: string;

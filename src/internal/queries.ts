@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { MachineRow, TaskRow } from "./interfaces";
+import { MachineRow, TaskRow } from "../interfaces";
 
 export async function dispatchAction(
   actionType: string,

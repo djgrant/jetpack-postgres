@@ -2,7 +2,7 @@
 import { createMachine, runWorker } from "@djgrant/jetpack";
 
 const taskMachine = createMachine({
-  name: "Task machine",
+  name: "Demo task",
   initial: "ready",
   states: {
     ready: {
@@ -38,6 +38,10 @@ const taskMachine = createMachine({
     done: {},
     abandoned: {},
   },
+});
+
+taskMachine.onRunning(() => {
+  console.log("Demo task running!");
 });
 
 runWorker({

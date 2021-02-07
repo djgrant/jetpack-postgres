@@ -1,5 +1,14 @@
 import { Pool } from "pg";
-import { MachineRow } from "./interfaces";
+import { MachineRow, TaskRow } from "./interfaces";
+
+export async function dispatchAction(
+  actionType: string,
+  task: TaskRow,
+  pool: Pool
+) {
+  const query = "select * from jetpack.dispatch_action($1, $2)";
+  await pool.query(query, [task.id, actionType]);
+}
 
 export async function upsertMachines(machines: MachineRow[], pool: Pool) {
   const query = `
@@ -18,6 +27,12 @@ export async function upsertMachines(machines: MachineRow[], pool: Pool) {
       machine.initial,
       machine.transitions,
     ]);
-    console.log(`Updated machine "${machine.name}"`);
   }
+}
+
+export async function getNextTask(pool: Pool): Promise<TaskRow | null> {
+  const result = await pool.query("select * from jetpack.get_next_task()");
+  const task = result.rows[0];
+  if (!task.id) return null;
+  return task;
 }

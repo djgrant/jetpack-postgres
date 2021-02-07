@@ -2,7 +2,7 @@
 
 Jetpack is a high reliability platform for processing background tasks and running complex workflows.
 
-Workflows are described using state machines that describe how tasks should transition between different states.
+Workflows are declared using state machines, which define how tasks should transition between different states.
 
 State machines can be connected together to handle all manner of workflows and edge cases. The state machines are stored and evaluated in the persistence layer ensuring transitions are always executed, even following a total system failure. The entire state of the system can be introspected at any point in time, including moments past, enabling powerful debugging tools.
 

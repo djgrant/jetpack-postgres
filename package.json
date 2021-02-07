@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsc && tsc -p tsconfig.cjs.json",
     "demo": "examples/example.ts",
-    "watch": "tsc --watch & node scripts/watch-db"
+    "watch": "tsc --watch & tsc -p tsconfig.cjs.json --watch & node scripts/watch-db"
   },
   "dependencies": {
     "pg": "^8.5.1",

@@ -23,6 +23,7 @@ export type GetterOperator =
 export type EffectOperator =
   | string
   | NoOpOperator
+  | ErrorOperator
   | IncrementAttemptsOperator
   | ChangeStateOperator
   | CreateTaskOperator
@@ -105,6 +106,11 @@ export interface AttemptsOperator extends Base {
 
 export interface NoOpOperator extends Base {
   type: "no_op";
+}
+
+export interface ErrorOperator extends Base {
+  type: "error";
+  message: string;
 }
 
 export interface ChangeStateOperator extends Base {

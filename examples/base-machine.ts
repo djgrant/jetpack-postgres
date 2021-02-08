@@ -1,8 +1,8 @@
 #!/usr/bin/env ts-node-script
-import { createMachine, runWorker, ops } from "@djgrant/jetpack";
+import { createBaseMachine, runWorker, ops } from "@djgrant/jetpack";
 
-const taskMachine = createMachine({
-  name: "Demo task",
+const taskMachine = createBaseMachine({
+  name: "Base machine example",
   initial: "ready",
   states: {
     ready: {
@@ -47,7 +47,7 @@ const taskMachine = createMachine({
 });
 
 taskMachine.onRunning(() => {
-  console.log("Demo task running!");
+  console.log("Base machine example running!");
 });
 
 runWorker({

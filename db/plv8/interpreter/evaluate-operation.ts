@@ -7,6 +7,17 @@ import {
   TaskRow,
 } from "@djgrant/jetpack";
 
+export function evaluateOperation(
+  operation: Operator,
+  task: TaskRow
+): EffectOperator {
+  try {
+    return evaluateOperator(operation, task);
+  } catch (err) {
+    return ops.error(err.toString());
+  }
+}
+
 export function evaluateOperator(
   operator: Operator,
   task: TaskRow
@@ -23,7 +34,7 @@ export function evaluateOperator(
       return isPass ? evalOp(op.then) : op.else ? evalOp(op.else) : ops.noOp();
     }
 
-    if (op.type === "lte") {
+    if (op.type === "lt" || op.type === "lte") {
       const left = evalComparable(op.left);
       const right = evalComparable(op.right);
       if (!isValueOperator(left)) throwValueOpError();
@@ -31,7 +42,12 @@ export function evaluateOperator(
       if (typeof left.value !== "number" || typeof right.value !== "number") {
         return ops.value(false);
       }
-      return ops.value(left.value <= right.value);
+      if (op.type === "lte") {
+        return ops.value(left.value <= right.value);
+      }
+      if (op.type === "lt") {
+        return ops.value(left.value < right.value);
+      }
     }
 
     if (op.type === "params") {

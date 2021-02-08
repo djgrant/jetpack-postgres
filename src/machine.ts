@@ -4,7 +4,7 @@ import { MachineRow, TaskRow, Transitions } from "./interfaces";
 import { dispatchAction } from "./internal/queries";
 import { log } from "./internal/utils";
 
-interface Opts {
+export interface MachineOptions {
   name: string;
   initial: string;
   states: Transitions;
@@ -17,7 +17,7 @@ export class Machine {
   transitions: Transitions;
   private onRunningCb?: Function;
 
-  constructor(opts: Opts) {
+  constructor(opts: MachineOptions) {
     this.id = createMachineId(opts);
     this.name = opts.name;
     this.initial = opts.initial;
@@ -47,18 +47,17 @@ export class Machine {
       await dispatchAction("SUCCESS", task, pool);
       log(`Successfully executed ${identifier}`);
     } catch (err) {
-      log(err);
       await dispatchAction("ERROR", task, pool);
       log(`Failed to execute ${identifier}`);
     }
   }
 }
 
-export function createMachine(opts: Opts): Machine {
+export function createBaseMachine(opts: MachineOptions): Machine {
   return new Machine(opts);
 }
 
-export function createMachineId(opts: Opts) {
+export function createMachineId(opts: MachineOptions) {
   const UUID_NAMESPACE = "6a8841e0-7ced-4152-bec6-b0873e38b60b";
   const payload = JSON.stringify(opts.states);
   return uuidV5(opts.name + payload, UUID_NAMESPACE);

@@ -89,12 +89,12 @@ In the upcoming examples we'll discover jetpack ships with a collection of opera
 
 ### A low-level example
 
-Starting with the low-level `createMachine` function, let's define a task machine that restarts whenever it fails, up to 5 times. This example will start out very verbose, but don't worry, we'll refactor as we go along!
+Starting with the low-level `createBaseMachine` function, let's define a task machine that restarts whenever it fails, up to 5 times. This example will start out very verbose, but don't worry, we'll refactor as we go along!
 
 ```ts
-import { createMachine } from "@djgrant/jetpack";
+import { createBaseMachine } from "@djgrant/jetpack";
 
-const taskMachine = createMachine({
+const taskMachine = createBaseMachine({
   name: "My task machine",
   initial: "ready",
   states: {
@@ -134,9 +134,9 @@ const taskMachine = createMachine({
 The previous code sample is exactly the kind of code we don't want to be writing by hand. So, instead, we can use the provided operators to clean it up.
 
 ```ts
-import { createMachine, ops } from "@djgrant/jetpack";
+import { createBaseMachine, ops } from "@djgrant/jetpack";
 
-const taskMachine = createMachine({
+const taskMachine = createBaseMachine({
   name: "My task machine",
   initial: "ready",
   states: {
@@ -167,7 +167,11 @@ The `retry` operator itself is a composition of other operators:
 import { ops } from "@djgrant/jetpack";
 
 const retry = (maxAttempts: number) =>
-  ops.cond(ops.lte(ops.attempts(), 5), "running");
+  ops.condition({
+    when: ops.lte(ops.attempts(), maxAttempts),
+    then: "running",
+    else: "abandoned",
+  });
 ```
 
 ### Simplifying task machines
@@ -346,11 +350,11 @@ Operators, which describe what should happen on a certain event, unlock the powe
 In the next example we'll create a workflow for booking a holiday. When the user books the holiday, a car and a hotel both must be booked. But, if one of the transactions failed, the other should be cancelled.
 
 ```ts
-import { createMachine, ops, late } from "@djgrant/jetpack";
+import { createBaseMachine, ops, late } from "@djgrant/jetpack";
 
-// Note: we're just using `createMachine` here as there is no actual task to process
+// Note: we're just using `createBaseMachine` here as there is no actual task to process
 // This machine is transitory, it merely glues together transitions between other machines
-export const bookHoliday = createMachine({
+export const bookHoliday = createBaseMachine({
   name: "Book holiday",
   states: {
     ready: {

@@ -62,40 +62,43 @@ create function jetpack.before_insert_action() returns trigger as $$
   var module = (function () {
     'use strict';
 
-    const ops = {
-        noOp: () => ({
-            type: "no_op",
-        }),
-        value: (value) => ({
-            type: "value",
-            value,
-        }),
-        changeState: (newState) => ({
-            type: "change_state",
-            new_state: newState,
-        }),
-        createTask: (opts) => ({
-            type: "create_task",
-            machine_id: opts.machine.id,
-        }),
-        self: () => ({
-            id: "$self",
-        }),
-    };
+    const noOp = () => ({
+        type: "no_op",
+    });
+    const error = (message) => ({
+        type: "error",
+        message,
+    });
+    const value = (value) => ({
+        type: "value",
+        value,
+    });
+    const changeState = (newState) => ({
+        type: "change_state",
+        new_state: newState,
+    });
 
+    function evaluateOperation(operation, task) {
+        try {
+            return evaluateOperator(operation, task);
+        }
+        catch (err) {
+            return error(err.toString());
+        }
+    }
     function evaluateOperator(operator, task) {
         function evalOp(op) {
             if (typeof op === "string") {
-                return ops.changeState(op);
+                return changeState(op);
             }
             if (op.type === "condition") {
                 var when = evalOp(op.when);
                 if (!isValueOperator(when))
                     throwValueOpError();
                 var isPass = Boolean(when.value);
-                return isPass ? evalOp(op.then) : op["else"] ? evalOp(op["else"]) : ops.noOp();
+                return isPass ? evalOp(op.then) : op["else"] ? evalOp(op["else"]) : noOp();
             }
-            if (op.type === "lte") {
+            if (op.type === "lt" || op.type === "lte") {
                 var left = evalComparable(op.left);
                 var right = evalComparable(op.right);
                 if (!isValueOperator(left))
@@ -103,18 +106,23 @@ create function jetpack.before_insert_action() returns trigger as $$
                 if (!isValueOperator(right))
                     throwValueOpError();
                 if (typeof left.value !== "number" || typeof right.value !== "number") {
-                    return ops.value(false);
+                    return value(false);
                 }
-                return ops.value(left.value <= right.value);
+                if (op.type === "lte") {
+                    return value(left.value <= right.value);
+                }
+                if (op.type === "lt") {
+                    return value(left.value < right.value);
+                }
             }
             if (op.type === "params") {
-                return ops.value(task.params[op.path]);
+                return value(task.params[op.path]);
             }
             if (op.type === "context") {
-                return ops.value(task.params[op.path]);
+                return value(task.params[op.path]);
             }
             if (op.type === "attempts") {
-                return ops.value(task.attempts);
+                return value(task.attempts);
             }
             return op;
         }
@@ -122,7 +130,7 @@ create function jetpack.before_insert_action() returns trigger as $$
             if (input !== null && typeof input === "object" && "type" in input) {
                 return evalOp(input);
             }
-            return ops.value(input);
+            return value(input);
         }
         return evalOp(operator);
     }
@@ -190,14 +198,14 @@ create function jetpack.before_insert_action() returns trigger as $$
         }
         NEW.previous_state = task.state;
         NEW.new_state = task.state;
-        NEW.operation = ops.noOp();
+        NEW.operation = noOp();
         var machine = transitionsQuery.execute([task.machine_id])[0];
         if (!machine)
             return NEW;
         var operation = (_b = (_a = machine.transitions[task.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b[type];
         if (!operation)
             return NEW;
-        var effectOperator = evaluateOperator(operation, task);
+        var effectOperator = evaluateOperation(operation, task);
         var effectedTask = runEffect(effectOperator, task);
         if (effectedTask) {
             var updatedTask = updateTask(effectedTask);

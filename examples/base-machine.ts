@@ -1,5 +1,5 @@
 #!/usr/bin/env ts-node-script
-import { createBaseMachine, runWorker, ops } from "@djgrant/jetpack";
+import { createBaseMachine, Jetpack } from "@djgrant/jetpack";
 
 const taskMachine = createBaseMachine({
   name: "Base machine example",
@@ -50,7 +50,10 @@ taskMachine.onRunning(() => {
   console.log("Base machine example running!");
 });
 
-runWorker({
-  db: { connectionString: "postgres://danielgrant@localhost:5432/jetpack" },
+const jetpack = new Jetpack({
+  db: "postgres://danielgrant@localhost:5432/jetpack",
+});
+
+jetpack.runWorker({
   machines: [taskMachine],
 });

@@ -1,5 +1,7 @@
 #!/usr/bin/env ts-node-script
-import { createTaskMachine, runWorker, ops } from "@djgrant/jetpack";
+import { Jetpack, createTaskMachine, ops } from "@djgrant/jetpack";
+
+const jetpack = new Jetpack({ db: process.env.DATABASE_URL });
 
 const taskMachine = createTaskMachine({
   name: "Task machine example",
@@ -22,7 +24,6 @@ taskMachine.onRunning(async () => {
   }
 });
 
-runWorker({
-  db: { connectionString: "postgres://danielgrant@localhost:5432/jetpack" },
-  machines: [taskMachine],
-});
+jetpack.createTask({ machine: taskMachine });
+
+jetpack.runWorker({ machines: [taskMachine] });

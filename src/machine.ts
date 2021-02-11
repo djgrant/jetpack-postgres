@@ -1,8 +1,5 @@
-import { Pool } from "pg";
 import { v5 as uuidV5 } from "uuid";
-import { MachineRow, TaskRow, Transitions } from "./interfaces";
-import { dispatchAction } from "./internal/queries";
-import { log } from "./internal/utils";
+import { Transitions } from "./interfaces";
 
 export interface MachineOptions {
   name: string;
@@ -15,42 +12,22 @@ export class Machine {
   name: string;
   initial: string;
   transitions: Transitions;
-  private onRunningCb?: Function;
+  taskHandler?: Function;
 
   constructor(opts: MachineOptions) {
     this.id = createMachineId(opts);
     this.name = opts.name;
     this.initial = opts.initial;
     this.transitions = opts.states;
-    this.onRunningCb = undefined;
+    this.taskHandler = undefined;
   }
 
   onRunning(cb: Function) {
-    this.onRunningCb = cb;
+    this.taskHandler = cb;
     return this;
   }
 
-  async execute(task: TaskRow, machine: MachineRow, pool: Pool) {
-    const identifier = `"${machine.name}" (machine ID: ${machine.id}, task ID: ${task.id})`;
-
-    log(`Processing ${identifier}`);
-
-    if (!this.onRunningCb) {
-      log(
-        `onRunning was not called on machine ${this.id}. Skipping execution.`
-      );
-      return;
-    }
-
-    try {
-      await this.onRunningCb();
-      await dispatchAction("SUCCESS", task, pool);
-      log(`Successfully executed ${identifier}`);
-    } catch (err) {
-      await dispatchAction("ERROR", task, pool);
-      log(`Failed to execute ${identifier}`);
-    }
-  }
+  async createTask() {}
 }
 
 export function createBaseMachine(opts: MachineOptions): Machine {

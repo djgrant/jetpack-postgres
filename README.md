@@ -227,16 +227,19 @@ A task is simply an instance of a state machine.
 
 ```ts
 // run-tasks.ts
+import { Jetpack } from "@djgrant/jetpack";
 import { taskMachine } from "./machines";
 
-async function runTasks() {
-  await taskMachine.createTask();
+const jetpack = new Jetpack();
+
+async function createTasks() {
+  await jetpack.createTask({ machine: taskMachine });
 }
 ```
 
 When a task is created it is given an initial state of `pending` which makes it available for workers to pick up and process.
 
-> 💡 Note that `Machine.createTask` is different to `ops.createTask`. The latter generates a static operator (it is merely an instruction), while the former actually creates a task at runtime.
+> 💡 Note that `jetpack.createTask` is different to `ops.createTask`. The latter generates a static operator (it is merely an instruction), while the former actually creates a task at runtime.
 
 ### Responding to state machines
 
@@ -261,10 +264,12 @@ In order to execute tasks, a worker must do two things:
 2. When a task moves into the `ready` state, lock onto it (thereby triggering a transition to the `running` state), and execute the task handler
 
 ```ts
-import { runWorker } from "@djgrant/jetpack";
+import { Jetpack } from "@djgrant/jetpack";
 import { taskMachine, nextTaskMachine } from "./machines";
 
-runWorker({
+const jetpack = new Jetpack();
+
+jetpack.runWorker({
   machines: [taskMachine, nextTaskMachine],
 });
 ```
@@ -277,6 +282,7 @@ Tasks can be enqueued from other services (e.g. a web server).
 
 ```ts
 // server.ts
+import { jetpack } from "./jetpack";
 import { assignTodoMachine } from "./worker";
 
 app.post("todo/:todoId/assign/:assignedUserId", (req, res) => {
@@ -285,7 +291,8 @@ app.post("todo/:todoId/assign/:assignedUserId", (req, res) => {
     assignedUserId,
     todoId,
   ]);
-  await assignTodoMachine.createTask({
+  await jetpack.createTask({
+    machine: assignTodoMachine,
     params: { todoId, assignedUserId },
   });
   res.send(204);
@@ -294,7 +301,8 @@ app.post("todo/:todoId/assign/:assignedUserId", (req, res) => {
 
 ```ts
 // worker.ts
-import { createTaskMachine, runWorker } from "@djgrant/jetpack";
+import { createTaskMachine } from "@djgrant/jetpack";
+import { jetpack } from "./jetpack";
 
 const assignTodoMachine = createTaskMachine({
   name: "Email new todo assignee",
@@ -307,7 +315,7 @@ assignTodoMachine.onRunning(async ({ params }) => {
   // send email
 });
 
-runWorker({
+jetpack.runWorker({
   machines: [assignTodoMachine],
 });
 ```
@@ -352,8 +360,11 @@ In the next example we'll create a workflow for booking a holiday. When the user
 ```ts
 import { createBaseMachine, ops, late } from "@djgrant/jetpack";
 
-// Note: we're just using `createBaseMachine` here as there is no actual task to process
-// This machine is transitory, it merely glues together transitions between other machines
+/*
+  Note: we're using `createBaseMachine` here as this
+  machine is not concerned with processing a task,
+  it merely glues together transitions between other machines
+*/
 export const bookHoliday = createBaseMachine({
   name: "Book holiday",
   states: {

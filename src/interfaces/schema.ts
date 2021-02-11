@@ -21,7 +21,7 @@ export interface ActionRow {
 
 export interface TaskRow {
   id: string; // bigint
-  parent_id: string; // bigint
+  parent_id: string | null; // bigint
   machine_id: string;
   path: string;
   params: Record<string, any>;

@@ -37,9 +37,11 @@ const taskMachine = createBaseMachine({
     },
     done: {
       onEvent: {
-        ENTER: ops.createTask({
-          machine: ops.self(),
-        }),
+        ENTER: {
+          type: "create_sub_task",
+          machine_id: "$self",
+          parent_id: "$self",
+        },
       },
     },
     abandoned: {},

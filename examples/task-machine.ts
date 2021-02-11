@@ -1,17 +1,13 @@
 #!/usr/bin/env ts-node-script
 import { Jetpack, createTaskMachine, ops } from "@djgrant/jetpack";
 
-const jetpack = new Jetpack({ db: process.env.DATABASE_URL });
-
 const taskMachine = createTaskMachine({
   name: "Task machine example",
   maxAttempts: 3,
   states: {
     done: {
       onEvent: {
-        ENTER: ops.createTask({
-          machine: ops.self(),
-        }),
+        ENTER: ops.createSubTask({ machine: ops.self() }),
       },
     },
   },
@@ -24,6 +20,11 @@ taskMachine.onRunning(async () => {
   }
 });
 
-jetpack.createTask({ machine: taskMachine });
+const jetpack = new Jetpack({
+  db: "postgres://danielgrant@localhost:5432/jetpack",
+  machines: [taskMachine],
+});
 
-jetpack.runWorker({ machines: [taskMachine] });
+jetpack.runWorker();
+
+jetpack.createTask({ machine: taskMachine }).then(console.log);

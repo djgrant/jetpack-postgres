@@ -1,5 +1,5 @@
 import { v5 as uuidV5 } from "uuid";
-import { Transitions } from "./interfaces";
+import { Transitions } from "./interfaces/machine";
 
 export interface MachineOptions {
   name: string;

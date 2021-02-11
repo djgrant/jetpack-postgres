@@ -26,7 +26,7 @@ export type EffectOperator =
   | ErrorOperator
   | IncrementAttemptsOperator
   | ChangeStateOperator
-  | CreateTaskOperator
+  | CreateSubTaskOperator
   | CreateRootTaskOperator
   | DispatchActionToRootOperator
   | DispatchActionToParentOperator
@@ -122,9 +122,10 @@ export interface IncrementAttemptsOperator extends Base {
   type: "increment_attempts";
 }
 
-export interface CreateTaskOperator extends Base {
-  type: "create_task";
+export interface CreateSubTaskOperator extends Base {
+  type: "create_sub_task";
   machine_id: string;
+  parent_id: string;
 }
 
 export interface CreateRootTaskOperator extends Base {

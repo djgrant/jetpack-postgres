@@ -168,9 +168,10 @@ create function jetpack.before_insert_action() returns trigger as $$
             task.attempts = task.attempts + 1;
             return task;
         }
-        if (op.type === "create_task") {
+        if (op.type === "create_sub_task") {
             createTask({
                 machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
+                parent_id: op.parent_id === "$self" ? task.id : op.parent_id,
             });
             return;
         }

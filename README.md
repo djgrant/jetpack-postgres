@@ -230,11 +230,15 @@ A task is simply an instance of a state machine.
 import { Jetpack } from "@djgrant/jetpack";
 import { taskMachine } from "./machines";
 
-const jetpack = new Jetpack();
+const jetpack = new Jetpack({
+  machines: [taskMachine],
+});
 
 async function createTasks() {
   await jetpack.createTask({ machine: taskMachine });
 }
+
+createTasks().catch(console.log);
 ```
 
 When a task is created it is given an initial state of `pending` which makes it available for workers to pick up and process.
@@ -267,11 +271,11 @@ In order to execute tasks, a worker must do two things:
 import { Jetpack } from "@djgrant/jetpack";
 import { taskMachine, nextTaskMachine } from "./machines";
 
-const jetpack = new Jetpack();
-
-jetpack.runWorker({
+const jetpack = new Jetpack({
   machines: [taskMachine, nextTaskMachine],
 });
+
+jetpack.runWorker();
 ```
 
 > 💡 Saving machines is an idempotent operation: it can be done multiple times and from different services with the same result.
@@ -281,9 +285,33 @@ jetpack.runWorker({
 Tasks can be enqueued from other services (e.g. a web server).
 
 ```ts
+// machines.ts
+import { createTaskMachine } from "@djgrant/jetpack";
+
+const assignTodoMachine = createTaskMachine({
+  name: "Email new todo assignee",
+  maxAttempts: 5,
+});
+
+assignTodoMachine.onRunning(async ({ params }) => {
+  const { todoId, assignedUserId } = params;
+  // get todo and user details
+  // send email
+});
+```
+
+```ts
+// jetpack.ts
+import { Jetpack } from "@djgrant/jetpack";
+import * as machines from "./machines";
+
+export const jetpack = new Jetpack({ machines });
+```
+
+```ts
 // server.ts
 import { jetpack } from "./jetpack";
-import { assignTodoMachine } from "./worker";
+import { assignTodoMachine } from "./machines";
 
 app.post("todo/:todoId/assign/:assignedUserId", (req, res) => {
   const { todoId, assignedUserId } = req.params;
@@ -296,27 +324,6 @@ app.post("todo/:todoId/assign/:assignedUserId", (req, res) => {
     params: { todoId, assignedUserId },
   });
   res.send(204);
-});
-```
-
-```ts
-// worker.ts
-import { createTaskMachine } from "@djgrant/jetpack";
-import { jetpack } from "./jetpack";
-
-const assignTodoMachine = createTaskMachine({
-  name: "Email new todo assignee",
-  maxAttempts: 5,
-});
-
-assignTodoMachine.onRunning(async ({ params }) => {
-  const { todoId, assignedUserId } = params;
-  // get todo and user details
-  // send email
-});
-
-jetpack.runWorker({
-  machines: [assignTodoMachine],
 });
 ```
 

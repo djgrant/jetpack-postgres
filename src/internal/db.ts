@@ -1,5 +1,9 @@
 import { Pool } from "pg";
-import { ConnectionOptions, MachineRow, TaskRow } from "../interfaces";
+import { MachineRow, TaskRow } from "../interfaces/db-schema";
+import { DbConnection, NewTask } from "../interfaces/db";
+
+export * from "../interfaces/db-schema";
+export * from "../interfaces/db";
 
 export class Db {
   pool: Pool;
@@ -8,14 +12,24 @@ export class Db {
     this.pool.end();
   }
 
-  constructor(opts: ConnectionOptions) {
-    if ("pool" in opts) {
-      this.pool = opts.pool;
+  constructor(connection: DbConnection) {
+    if (connection instanceof Pool) {
+      this.pool = connection;
+    } else if (typeof connection === "string") {
+      this.pool = new Pool({ connectionString: connection });
     } else {
-      this.pool = new Pool(
-        typeof opts.db === "string" ? { connectionString: opts.db } : opts.db
-      );
+      this.pool = new Pool(connection);
     }
+  }
+
+  async createTask(task: NewTask) {
+    const query = "select * from jetpack.create_task($1, $2, $3, $4)";
+    await this.pool.query(query, [
+      task.machineId,
+      task.parentId,
+      task.params || {},
+      task.context || {},
+    ]);
   }
 
   async dispatchAction(actionType: string, task: TaskRow) {

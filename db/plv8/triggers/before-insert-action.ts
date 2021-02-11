@@ -1,4 +1,4 @@
-import { MachineRow, ActionRow, TaskRow, ops } from "@djgrant/jetpack";
+import { ops, MachineRow, ActionRow, TaskRow } from "@djgrant/jetpack";
 import { evaluateOperation, runEffect } from "../interpreter";
 import { updateTask } from "../queries/update-task";
 

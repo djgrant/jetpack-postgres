@@ -3,7 +3,7 @@ import {
   ChangeStateOperator,
   Comparable,
   ConditionOperator,
-  CreateTaskOperator,
+  CreateSubTaskOperator,
   ErrorOperator,
   IncrementAttemptsOperator,
   LteOperator,
@@ -11,7 +11,7 @@ import {
   NoOpOperator,
   Primitive,
   ValueOperator,
-} from "./interfaces";
+} from "./interfaces/operators";
 
 export const noOp = (): NoOpOperator => ({
   type: "no_op",
@@ -32,11 +32,12 @@ export const changeState = (newState: string): ChangeStateOperator => ({
   new_state: newState,
 });
 
-export const createTask = (opts: {
+export const createSubTask = (opts: {
   machine: { id: string };
-}): CreateTaskOperator => ({
-  type: "create_task",
+}): CreateSubTaskOperator => ({
+  type: "create_sub_task",
   machine_id: opts.machine.id,
+  parent_id: "$self",
 });
 
 export const self = () => ({

@@ -1,5 +1,5 @@
 import { createBaseMachine } from "./machine";
-import { Transitions } from "./interfaces";
+import { Transitions } from "./interfaces/machine";
 import * as ops from "./operators";
 
 export interface TaskMachineOptions {

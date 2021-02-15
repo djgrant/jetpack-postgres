@@ -3,6 +3,7 @@ import { Db, DbConnection, NewTask, TaskRow } from "./internal/db";
 import { log } from "./internal/utils";
 import { POLL_INTERVAL } from "./internal/config";
 import { Machine } from "./machine";
+import { Execution } from "./internal/execution";
 
 export interface JetpackOptions {
   db: DbConnection;
@@ -102,8 +103,10 @@ export class Jetpack {
       return;
     }
 
+    const execution = new Execution(task);
+
     try {
-      await machine.taskHandler();
+      await machine.taskHandler(execution);
       await this.db.dispatchAction("SUCCESS", task);
       log(`Successfully executed ${identifier}`);
     } catch (err) {

@@ -1,5 +1,8 @@
 import { v5 as uuidV5 } from "uuid";
 import { Transitions } from "./interfaces/machine";
+import { Execution } from "./internal/execution";
+
+type TaskHandler = (execution: Execution) => Promise<any>;
 
 export interface MachineOptions {
   name: string;
@@ -12,7 +15,7 @@ export class Machine {
   name: string;
   initial: string;
   transitions: Transitions;
-  taskHandler?: Function;
+  taskHandler?: TaskHandler;
 
   constructor(opts: MachineOptions) {
     this.id = createMachineId(opts);
@@ -22,12 +25,10 @@ export class Machine {
     this.taskHandler = undefined;
   }
 
-  onRunning(cb: Function) {
+  onRunning(cb: TaskHandler) {
     this.taskHandler = cb;
     return this;
   }
-
-  async createTask() {}
 }
 
 export function createBaseMachine(opts: MachineOptions): Machine {

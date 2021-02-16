@@ -8,23 +8,26 @@ import { Execution } from "./internal/execution";
 export interface JetpackOptions {
   db: DbConnection;
   machines: Machine[];
+  exitOnError?: boolean;
 }
 
 export class Jetpack {
   db: Db;
-  stop: (err: Error) => void;
   machines: Machine[];
   readyPromise: Promise<any>;
+  exitOnError: boolean;
 
   constructor(opts: JetpackOptions) {
     this.db = new Db(opts.db);
     this.machines = opts.machines;
-    this.stop = (err: Error) => {
-      if (err) log(err);
-      this.db.end();
-      process.exit(err ? 1 : 0);
-    };
     this.readyPromise = this.init().catch(this.stop);
+    this.exitOnError = opts.exitOnError || false;
+  }
+
+  stop(err?: Error) {
+    this.db.end();
+    if (err) log(err);
+    if (err && this.exitOnError) process.exit(1);
   }
 
   async init() {
@@ -111,6 +114,7 @@ export class Jetpack {
       log(`Successfully executed ${identifier}`);
     } catch (err) {
       await this.db.dispatchAction("ERROR", task);
+      log(err);
       log(`Failed to execute ${identifier}`);
     }
   }

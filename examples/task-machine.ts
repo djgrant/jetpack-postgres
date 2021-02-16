@@ -30,6 +30,6 @@ const jetpack = new Jetpack({
   machines: [taskMachine],
 });
 
-jetpack.createTask({ machine: taskMachine }).then(console.log);
+jetpack.createTask({ machine: taskMachine }).catch(console.log);
 
 jetpack.runWorker();

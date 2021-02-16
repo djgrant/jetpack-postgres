@@ -5,39 +5,45 @@ import { POLL_INTERVAL } from "./internal/config";
 import { Machine } from "./machine";
 import { Execution } from "./internal/execution";
 
+type Logger = (...msgs: any) => void;
+
 export interface JetpackOptions {
   db: DbConnection;
   machines: Machine[];
-  exitOnError?: boolean;
+  logger?: Logger;
 }
 
 export class Jetpack {
   db: Db;
   machines: Machine[];
   readyPromise: Promise<any>;
-  exitOnError: boolean;
+  workerPromise: Promise<any>;
+  log: Logger;
+  timer?: NodeJS.Timeout;
 
   constructor(opts: JetpackOptions) {
     this.db = new Db(opts.db);
     this.machines = opts.machines;
-    this.readyPromise = this.init().catch(this.stop);
-    this.exitOnError = opts.exitOnError || false;
-  }
-
-  stop(err?: Error) {
-    this.db.end();
-    if (err) log(err);
-    if (err && this.exitOnError) process.exit(1);
+    this.log = opts.logger || log;
+    this.workerPromise = Promise.resolve();
+    this.readyPromise = this.init().catch(err => this.end(err));
   }
 
   async init() {
     await this.db.upsertMachines(this.machines);
     const machineCount = this.machines.length;
-    log(
+    this.log(
       `Uploaded ${machineCount} state machine${machineCount !== 1 ? "s" : ""}`
     );
 
     // TODO: Clean up unused machines
+  }
+
+  async end(err: Error) {
+    if (err) this.log(err);
+    await this.readyPromise;
+    await this.stopWorker();
+    this.db.end();
   }
 
   async createTask(task: Omit<NewTask, "machineId"> & { machine: Machine }) {
@@ -51,56 +57,53 @@ export class Jetpack {
   }
 
   runWorker() {
-    this.runWorkerAsync().catch(this.stop);
+    this.runWorkerPolling().catch(this.end);
   }
 
-  async runWorkerAsync() {
-    const WORKER_ID = uuidV4();
-    log(`Starting worker ${WORKER_ID}`);
+  async stopWorker() {
+    if (this.timer) clearTimeout(this.timer);
+    await this.workerPromise;
+  }
+
+  async runWorkerOnce() {
     await this.readyPromise;
-    this.pollForTask(task => {
-      const machine = this.machines.find(m => (m.id = task.machine_id));
-      if (!machine) {
-        throw new Error(`Do not have a machine defined for task: ${task.id}`);
-      }
-      this.executeTaskHandler(task, machine);
-    });
-    log(`Awaiting tasks to process`);
+    while (true) {
+      const task = await this.db.getNextTask();
+      if (!task) break;
+      await this.processTask(task);
+    }
   }
 
-  async pollForTask(onTakeTask: (t: TaskRow) => void) {
-    function runTimer() {
-      setTimeout(async () => {
-        await takeTask();
+  async runWorkerPolling() {
+    const WORKER_ID = uuidV4();
+    this.log(`Starting worker ${WORKER_ID}`);
+    await this.readyPromise;
+    this.log(`Awaiting tasks to process`);
+    const runTimer = () => {
+      this.timer = setTimeout(async () => {
+        this.workerPromise = this.runWorkerOnce().catch(this.log);
+        await this.workerPromise;
         runTimer();
       }, POLL_INTERVAL);
-    }
-
-    const takeTask = () => {
-      return this.db
-        .getNextTask()
-        .then(task => {
-          if (!task) return;
-          onTakeTask(task);
-        })
-        .catch(this.stop);
     };
-
-    // on pg notify new task ready
-    // -> clearTimeout(timer);
-    // -> await takeTask
-    // -> runTimer();
-
     runTimer();
+  }
+
+  private async processTask(task: TaskRow) {
+    const machine = this.machines.find(m => m.id === task.machine_id);
+    if (!machine) {
+      throw new Error(`Do not have a machine defined for task: ${task.id}`);
+    }
+    await this.executeTaskHandler(task, machine);
   }
 
   async executeTaskHandler(task: TaskRow, machine: Machine) {
     const identifier = `"${machine.name}" (machine ID: ${machine.id}, task ID: ${task.id})`;
 
-    log(`Processing ${identifier}`);
+    this.log(`Processing ${identifier}`);
 
     if (!machine.taskHandler) {
-      log(
+      this.log(
         `onRunning was not called on machine ${machine.id}. Skipping execution.`
       );
       return;
@@ -111,11 +114,11 @@ export class Jetpack {
     try {
       await machine.taskHandler(execution);
       await this.db.dispatchAction("SUCCESS", task);
-      log(`Successfully executed ${identifier}`);
+      this.log(`Successfully executed ${identifier}`);
     } catch (err) {
       await this.db.dispatchAction("ERROR", task);
-      log(err);
-      log(`Failed to execute ${identifier}`);
+      this.log(err);
+      this.log(`Failed to execute ${identifier}`);
     }
   }
 }

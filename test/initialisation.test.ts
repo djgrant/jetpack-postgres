@@ -4,7 +4,7 @@ import { Pool } from "pg";
 
 const pool = new Pool({ connectionString });
 
-describe("initialisation", () => {
+describe.skip("initialisation", () => {
   beforeAll(() => migrate());
   afterAll(() => pool.end());
 
@@ -17,10 +17,10 @@ describe("initialisation", () => {
     const jetpack = new Jetpack({
       db: connectionString,
       machines: [testMachine],
+      logger: () => {},
     });
 
-    await jetpack.readyPromise;
-    jetpack.stop();
+    await jetpack.end();
 
     const machinesTable = await pool.query("select * from jetpack.machines");
 
@@ -40,10 +40,10 @@ describe("initialisation", () => {
     const jetpack = new Jetpack({
       db: connectionString,
       machines: [testMachine],
+      logger: () => {},
     });
 
-    await jetpack.readyPromise;
-    jetpack.stop();
+    await jetpack.end();
 
     const machinesTable = await pool.query("select * from jetpack.machines");
 
@@ -67,10 +67,10 @@ describe("initialisation", () => {
     const jetpack = new Jetpack({
       db: connectionString,
       machines: [testMachine],
+      logger: () => {},
     });
 
-    await jetpack.readyPromise;
-    jetpack.stop();
+    await jetpack.end();
 
     const machinesTable = await pool.query("select * from jetpack.machines");
 

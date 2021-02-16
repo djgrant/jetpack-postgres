@@ -1,8 +1,13 @@
--- Generated current migration
+/*
+  This is a generated file. Do not modify it manually.
+*/
 
-drop function if exists jetpack.after_state_change cascade;
+/*
+  after-update-state.sql
+*/
+drop function if exists jetpack.after_update_state cascade;
 
-create function jetpack.after_state_change() returns trigger as $$
+create function jetpack.after_update_state() returns trigger as $$
   var module = (function () {
   'use strict';
 
@@ -11,32 +16,35 @@ create function jetpack.after_state_change() returns trigger as $$
       dispatchActionQuery.execute([taskId, action]);
   }
 
-  function afterTaskstateChange() {
+  function afterUpdateTaskState() {
       var _a, _b;
       var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
       var machine = transitionsQuery.execute([NEW.machine_id])[0];
       if (!machine)
-          return NEW;
+          return null;
       var onEnterOperation = (_b = (_a = machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
       if (!onEnterOperation)
-          return NEW;
+          return null;
       dispatchAction(NEW.id, "ENTER");
   }
 
-  return afterTaskstateChange;
+  return afterUpdateTaskState;
 
 }());
 
  return module();
 $$ language plv8 volatile;
 
-create trigger after_state_change
+create trigger after_update_state
 after update on jetpack.tasks
 for each row
 when (old.state is distinct from new.state)
-execute procedure jetpack.after_state_change();
+execute procedure jetpack.after_update_state();
 
 
+/*
+  after-update-task.sql
+*/
 drop function if exists jetpack.after_update_task cascade;
 
 -- not sure what this is for
@@ -56,6 +64,9 @@ for each row when (old.parent_id is distinct from new.parent_id)
 execute procedure jetpack.after_update_task();
 
 
+/*
+  before-insert-action.sql
+*/
 drop function if exists jetpack.before_insert_action cascade;
 
 create function jetpack.before_insert_action() returns trigger as $$
@@ -229,6 +240,9 @@ for each row
 execute procedure jetpack.before_insert_action();
 
 
+/*
+  before-upsert-task.sql
+*/
 drop function if exists jetpack.before_upsert_task cascade;
 
 create function jetpack.before_upsert_task () returns trigger as $$
@@ -256,6 +270,9 @@ for each row when (old.parent_id is distinct from new.parent_id)
 execute procedure jetpack.before_upsert_task();
 
 
+/*
+  create-task.sql
+*/
 drop function if exists jetpack.create_task cascade;
 
 create function jetpack.create_task(
@@ -273,6 +290,9 @@ create function jetpack.create_task(
 $$ language sql volatile;
 
 
+/*
+  dispatch-action.sql
+*/
 drop function if exists jetpack.dispatch_action cascade;
 
 create function jetpack.dispatch_action(task_id bigint, action_type text, payload jsonb default null) returns jetpack.actions as $$
@@ -282,6 +302,9 @@ create function jetpack.dispatch_action(task_id bigint, action_type text, payloa
 $$ language sql volatile;
 
 
+/*
+  get-next-task.sql
+*/
 drop function if exists jetpack.get_next_task cascade;
 
 create function jetpack.get_next_task() returns jetpack.tasks as $$

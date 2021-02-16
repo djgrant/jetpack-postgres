@@ -1,12 +1,13 @@
 create extension if not exists ltree;
 create extension if not exists plv8;
 
-drop schema jetpack cascade;
+drop schema if exists jetpack cascade;
 create schema if not exists jetpack;
 
 drop table if exists jetpack.machines cascade;
 drop table if exists jetpack.tasks cascade;
 drop table if exists jetpack.actions cascade;
+drop table if exists jetpack.subtree_states cascade;
 
 create table jetpack.machines (
   id uuid primary key,
@@ -17,7 +18,7 @@ create table jetpack.machines (
 
 create table jetpack.tasks (
   id bigserial primary key,
-  parent_id bigint,
+  parent_id bigint references jetpack.tasks(id),
   machine_id uuid not null references jetpack.machines(id),
   path ltree,
   params jsonb not null default '{}',

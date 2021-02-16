@@ -47,12 +47,12 @@ async function updateCurrentMigration(changedFile) {
 
   const filenames = await fs.readdir(path.join(paths.db, dirname));
 
-  let sqls = ["-- Generated current migration"];
+  let sqls = ["/*\n  This is a generated file. Do not modify it manually.\n*/"];
   for (const filename of filenames) {
     const filePath = path.join(paths.db, dirname, filename);
     const file = await fs.readFile(filePath, { encoding: "utf-8" });
     const sql = await sqlWithTsImport(file);
-    sqls.push(sql);
+    sqls.push(`/*\n  ${filename}\n*/\n${sql}`);
   }
 
   await fs.writeFile(

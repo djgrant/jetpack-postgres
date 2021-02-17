@@ -4,14 +4,14 @@ create function jetpack.subtree_states_aggregated (id bigint) returns setof jetp
 $$
   select * 
   from jetpack.subtree_states 
-  where root_task_id = id
+  where task_id = id
   union
   select 
-    id::bigint as root_task_id, 
+    id::bigint as task_id, 
     'total' as state, 
-    sum(children)::int as children, 
-    sum(descendants)::int as descendants 
+    coalesce(sum(children), 0)::int as children, 
+    coalesce(sum(descendants), 0)::int as descendants 
   from jetpack.subtree_states 
-  where root_task_id = id;
+  where task_id = id;
 $$ 
 language sql stable;

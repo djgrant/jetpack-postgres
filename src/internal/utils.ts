@@ -1,3 +1,4 @@
 export function log(msg: any, ...rest: any[]) {
-  console.log(`[Jetpack]: ${msg}`, ...rest);
+  if (msg instanceof Error) console.log(msg, ...rest);
+  else console.log(`[Jetpack]: ${msg}`, ...rest);
 }

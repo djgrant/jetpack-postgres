@@ -39,7 +39,7 @@ export class Jetpack {
     // TODO: Clean up unused machines
   }
 
-  async end(err: Error) {
+  async end(err?: Error) {
     if (err) this.log(err);
     await this.readyPromise;
     await this.stopWorker();

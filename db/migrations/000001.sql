@@ -39,8 +39,8 @@ create table jetpack.actions (
 );
 
 create table jetpack.subtree_states (
-  primary key (root_task_id, state),
-  root_task_id bigint, -- todo: FK prevents after trigger working
+  primary key (task_id, state),
+  task_id bigint, -- todo: FK prevents after trigger working
   state text not null,
   children int not null,
   descendants int not null

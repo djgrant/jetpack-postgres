@@ -4,7 +4,7 @@ import { Pool } from "pg";
 
 const pool = new Pool({ connectionString });
 
-describe.skip("initialisation", () => {
+describe("initialisation", () => {
   beforeAll(() => migrate());
   afterAll(() => pool.end());
 

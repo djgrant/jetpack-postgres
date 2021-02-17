@@ -51,31 +51,36 @@ describe("subtree states", () => {
     );
 
     const subTaskSubtreeStatesTable = await pool.query(
-      "select * from jetpack.subtree_states_aggregated(1)"
+      "select * from jetpack.subtree_states_aggregated(2)"
     );
 
-    expect(fullTreeStatesTable.rows).toMatchObject([
-      { state: "ready", children: 0, descendants: 0 },
-      { state: "total", children: 1, descendants: 2 },
-      { state: "failed", children: 0, descendants: 0 },
-      { state: "running", children: 0, descendants: 0 },
-      { state: "done", children: 1, descendants: 2 },
-    ]);
+    const getCountsByState = (table: { rows: { state: string }[] }) =>
+      table.rows.reduce(
+        (acc, row) => ({
+          ...acc,
+          [row.state]: row,
+        }),
+        {}
+      );
 
-    expect(testTaskSubtreeStatesTable.rows).toMatchObject([
-      { state: "done", children: 0, descendants: 0 },
-      { state: "running", children: 0, descendants: 0 },
-      { state: "failed", children: 1, descendants: 0 },
-      { state: "ready", children: 0, descendants: 0 },
-      { state: "total", children: 2, descendants: 2 },
-    ]);
+    expect(getCountsByState(fullTreeStatesTable)).toMatchObject({
+      total: { children: 1, descendants: 2 },
+      done: { children: 1, descendants: 2 },
+      ready: { children: 0, descendants: 0 },
+      running: { children: 0, descendants: 0 },
+      failed: { children: 0, descendants: 0 },
+    });
 
-    expect(subTaskSubtreeStatesTable.rows).toMatchObject([
-      { state: "done", children: 0, descendants: 0 },
-      { state: "running", children: 0, descendants: 0 },
-      { state: "failed", children: 0, descendants: 0 },
-      { state: "ready", children: 0, descendants: 0 },
-      { state: "total", children: 0, descendants: 0 },
-    ]);
+    expect(getCountsByState(testTaskSubtreeStatesTable)).toMatchObject({
+      total: { children: 1, descendants: 1 },
+      done: { children: 1, descendants: 1 },
+      running: { children: 0, descendants: 0 },
+      ready: { children: 0, descendants: 0 },
+      failed: { children: 0, descendants: 0 },
+    });
+
+    expect(getCountsByState(subTaskSubtreeStatesTable)).toMatchObject({
+      total: { children: 0, descendants: 0 },
+    });
   });
 });

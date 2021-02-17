@@ -3,6 +3,7 @@ import {
   ChangeStateOperator,
   Comparable,
   ConditionOperator,
+  CreateRootTaskOperator,
   CreateSubTaskOperator,
   ErrorOperator,
   IncrementAttemptsOperator,
@@ -38,6 +39,13 @@ export const createSubTask = (opts: {
   type: "create_sub_task",
   machine_id: opts.machine.id,
   parent_id: "$self",
+});
+
+export const createRootTask = (opts: {
+  machine: { id: string };
+}): CreateRootTaskOperator => ({
+  type: "create_root_task",
+  machine_id: opts.machine.id,
 });
 
 export const self = () => ({

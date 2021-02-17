@@ -24,4 +24,12 @@ export function runEffect(op: EffectOperator, task: TaskRow) {
     });
     return;
   }
+
+  if (op.type === "create_root_task") {
+    createTask({
+      machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
+      parent_id: null,
+    });
+    return;
+  }
 }

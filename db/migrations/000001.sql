@@ -18,7 +18,7 @@ create table jetpack.machines (
 
 create table jetpack.tasks (
   id bigserial primary key,
-  parent_id bigint references jetpack.tasks(id),
+  parent_id bigint references jetpack.tasks(id) on delete cascade,
   machine_id uuid not null references jetpack.machines(id),
   path ltree,
   params jsonb not null default '{}',
@@ -40,7 +40,7 @@ create table jetpack.actions (
 
 create table jetpack.subtree_states (
   primary key (task_id, state),
-  task_id bigint, -- todo: FK prevents after trigger working
+  task_id bigint not null,
   state text not null,
   children int not null,
   descendants int not null

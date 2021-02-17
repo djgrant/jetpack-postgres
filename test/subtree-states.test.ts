@@ -83,4 +83,6 @@ describe("subtree states", () => {
       total: { children: 0, descendants: 0 },
     });
   });
+
+  it.todo("deletes hanging subtree states", async () => {});
 });

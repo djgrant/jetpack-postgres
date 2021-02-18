@@ -1,6 +1,6 @@
-drop function if exists jetpack.subtree_states_aggregated;
+drop function if exists jetpack.get_subtree_states_agg;
 
-create function jetpack.subtree_states_aggregated (id bigint) returns setof jetpack.subtree_states as 
+create function jetpack.get_subtree_states_agg (id bigint) returns setof jetpack.subtree_states as 
 $$
   select * 
   from jetpack.subtree_states 

@@ -3,163 +3,91 @@
 */
 
 /*
-  after-set-state.sql
+  functions/create-task.sql
 */
-drop function if exists jetpack.after_set_state cascade; 
+drop function if exists jetpack.create_task cascade;
 
-create function jetpack.after_set_state() returns trigger as $$ 
+create function jetpack.create_task(
+  machine_id uuid,
+  parent_id bigint default null,
+  params jsonb default '{}', 
+  context jsonb default '{}'
+) returns jetpack.tasks as $$
+  with machine as (
+    select initial from jetpack.machines where id = machine_id
+  )
+  insert into jetpack.tasks (machine_id, parent_id, params, context, state, attempts)
+  values (machine_id, parent_id, params, context, (select initial from machine), 0)
+  returning *;
+$$ language sql volatile;
+
+
+/*
+  functions/dispatch-action.sql
+*/
+drop function if exists jetpack.dispatch_action cascade;
+
+create function jetpack.dispatch_action(task_id bigint, action_type text, payload jsonb default null) returns jetpack.actions as $$
+  insert into jetpack.actions (type, task_id, payload) 
+  values (action_type, task_id, payload)
+  returning *;
+$$ language sql volatile;
+
+
+/*
+  functions/get-next-task.sql
+*/
+drop function if exists jetpack.get_next_task cascade;
+
+create function jetpack.get_next_task() returns jetpack.tasks as $$
 declare
-  parent_id bigint;
-  ancestors text[];
+  next_task jetpack.tasks;
 begin
-  if (new is null) then
-    parent_id = coalesce(old.parent_id, 0);
-    ancestors = string_to_array('0.' || old.path::text, '.');
-    ancestors = array_remove(ancestors, old.id::text);
-    ancestors = array_remove(ancestors, parent_id::text);
-  else 
-    parent_id = coalesce(new.parent_id, 0);
-    ancestors = string_to_array('0.' || new.path::text, '.');
-    ancestors = array_remove(ancestors, new.id::text);
-    ancestors = array_remove(ancestors, parent_id::text);
-  end if;
+  select * into next_task
+  from jetpack.tasks
+  where state = 'ready'
+  order by id
+  limit 1
+  for update skip locked;
 
-  if (TG_OP = 'DELETE' and old.parent_id is not null) then
-    delete from jetpack.subtree_states where task_id = old.id;
-  end if;
+	if not found then 
+	  return next_task;
+	end if;
 
-  -- decrement counts
-  if (old.state != new.state or new.state is null) then
+  perform jetpack.dispatch_action(next_task.id, 'LOCKED_BY_WORKER');
 
-    -- parent task
-    update jetpack.subtree_states as s set 
-      children = s.children - 1,
-      descendants = s.descendants - 1
-    where s.task_id = parent_id
-    and s.state = old.state;
-
-    -- grandparent+ tasks
-    update jetpack.subtree_states as s set
-      task_id = t.task_id,
-      descendants = s.descendants - 1
-    from (
-      select unnest::bigint as task_id from unnest(ancestors)
-    ) as t(task_id) 
-    where s.task_id = t.task_id
-    and state = old.state;
-    
-  end if;
-
-  -- increment counts
-  if (new.state is not null) then
-  
-    -- parent task
-    insert into jetpack.subtree_states as s (task_id, state, children, descendants)
-    values (parent_id, new.state, 1, 1)
-    on conflict on constraint subtree_states_pkey do update 
-    set children = s.children + 1, descendants = s.descendants + 1;
-
-    -- grandparent+ tasks
-    insert into jetpack.subtree_states as s (task_id, state, descendants, children) 
-    select unnest::bigint as task_id, new.state as state, 1 as descendants, 0 as children
-    from unnest(ancestors)
-    on conflict on constraint subtree_states_pkey do update 
-    set descendants = s.descendants + 1;
-  
-  end if;
-
-	return null;
+  return next_task;
 end
 $$ language plpgsql volatile;
 
 
-create constraint trigger state_change 
-after update on jetpack.tasks
-deferrable initially deferred
-for each row
-when (old.state != new.state)
-execute procedure jetpack.after_set_state();
+/*
+  functions/get-subtree-states-agg.sql
+*/
+drop function if exists jetpack.get_subtree_states_agg;
 
-create constraint trigger state_insert 
-after insert on jetpack.tasks
-deferrable initially deferred
-for each row
-execute procedure jetpack.after_set_state();
-
-create trigger state_delete
-after delete on jetpack.tasks
-for each row
-execute procedure jetpack.after_set_state();
-
+create function jetpack.get_subtree_states_agg (id bigint) returns setof jetpack.subtree_states as 
+$$
+  select * 
+  from jetpack.subtree_states 
+  where task_id = id
+  union
+  select 
+    id::bigint as task_id, 
+    'total' as state, 
+    coalesce(sum(children), 0)::int as children, 
+    coalesce(sum(descendants), 0)::int as descendants 
+  from jetpack.subtree_states 
+  where task_id = id;
+$$ 
+language sql stable;
 
 /*
-  after-update-state.sql
+  triggers/on-insert-action-eval-transition.sql
 */
-drop function if exists jetpack.after_update_state cascade;
+drop function if exists jetpack.eval_transition cascade;
 
-create function jetpack.after_update_state() returns trigger as $$
-  var module = (function () {
-  'use strict';
-
-  function dispatchAction(taskId, action) {
-      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
-      dispatchActionQuery.execute([taskId, action]);
-  }
-
-  function afterUpdateTaskState() {
-      var _a, _b;
-      var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
-      var machine = transitionsQuery.execute([NEW.machine_id])[0];
-      if (!machine)
-          return null;
-      var onEnterOperation = (_b = (_a = machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
-      if (!onEnterOperation)
-          return null;
-      dispatchAction(NEW.id, "ENTER");
-  }
-
-  return afterUpdateTaskState;
-
-}());
-
- return module();
-$$ language plv8 volatile;
-
-create trigger after_update_state
-after update on jetpack.tasks
-for each row
-when (old.state is distinct from new.state)
-execute procedure jetpack.after_update_state();
-
-
-/*
-  after-update-task.sql
-*/
-drop function if exists jetpack.after_update_task cascade;
-
--- not sure what this is for
-create function jetpack.after_update_task () returns trigger as $$
-begin
-  update jetpack.tasks
-  set path = new.path || subpath(path, nlevel(old.path))
-  where old.path @> path
-  and old.path != path;
-  return new;
-end
-$$ language plpgsql volatile;
-
-create trigger after_update_task
-after update on jetpack.tasks
-for each row when (old.parent_id is distinct from new.parent_id)
-execute procedure jetpack.after_update_task();
-
-
-/*
-  before-insert-action.sql
-*/
-drop function if exists jetpack.before_insert_action cascade;
-
-create function jetpack.before_insert_action() returns trigger as $$
+create function jetpack.eval_transition() returns trigger as $$
   var module = (function () {
     'use strict';
 
@@ -334,15 +262,145 @@ $$ language plv8 volatile;
 create trigger before_insert_action
 before insert on jetpack.actions
 for each row
-execute procedure jetpack.before_insert_action();
+execute procedure jetpack.eval_transition();
 
 
 /*
-  before-upsert-task.sql
+  triggers/on-new-state-eval-enter-transition.sql
 */
-drop function if exists jetpack.before_upsert_task cascade;
+drop function if exists jetpack.eval_enter_transition cascade;
 
-create function jetpack.before_upsert_task () returns trigger as $$
+create function jetpack.eval_enter_transition() returns trigger as $$
+  var module = (function () {
+  'use strict';
+
+  function dispatchAction(taskId, action) {
+      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
+      dispatchActionQuery.execute([taskId, action]);
+  }
+
+  function afterUpdateTaskState() {
+      var _a, _b;
+      var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
+      var machine = transitionsQuery.execute([NEW.machine_id])[0];
+      if (!machine)
+          return null;
+      var onEnterOperation = (_b = (_a = machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
+      if (!onEnterOperation)
+          return null;
+      dispatchAction(NEW.id, "ENTER");
+  }
+
+  return afterUpdateTaskState;
+
+}());
+
+ return module();
+$$ language plv8 volatile;
+
+create trigger after_update_state
+after update on jetpack.tasks
+for each row
+when (old.state is distinct from new.state)
+execute procedure jetpack.eval_enter_transition();
+
+
+/*
+  triggers/on-new-state-update-subtree.sql
+*/
+drop function if exists jetpack.update_subtree_states cascade; 
+
+create function jetpack.update_subtree_states() returns trigger as $$ 
+declare
+  parent_id bigint;
+  ancestors text[];
+begin
+  if (new is null) then
+    parent_id = coalesce(old.parent_id, 0);
+    ancestors = string_to_array('0.' || old.path::text, '.');
+    ancestors = array_remove(ancestors, old.id::text);
+    ancestors = array_remove(ancestors, parent_id::text);
+  else 
+    parent_id = coalesce(new.parent_id, 0);
+    ancestors = string_to_array('0.' || new.path::text, '.');
+    ancestors = array_remove(ancestors, new.id::text);
+    ancestors = array_remove(ancestors, parent_id::text);
+  end if;
+
+  if (TG_OP = 'DELETE' and old.parent_id is not null) then
+    delete from jetpack.subtree_states where task_id = old.id;
+  end if;
+
+  -- decrement counts
+  if (old.state != new.state or new.state is null) then
+
+    -- parent task
+    update jetpack.subtree_states as s set 
+      children = s.children - 1,
+      descendants = s.descendants - 1
+    where s.task_id = parent_id
+    and s.state = old.state;
+
+    -- grandparent+ tasks
+    update jetpack.subtree_states as s set
+      task_id = t.task_id,
+      descendants = s.descendants - 1
+    from (
+      select unnest::bigint as task_id from unnest(ancestors)
+    ) as t(task_id) 
+    where s.task_id = t.task_id
+    and state = old.state;
+    
+  end if;
+
+  -- increment counts
+  if (new.state is not null) then
+  
+    -- parent task
+    insert into jetpack.subtree_states as s (task_id, state, children, descendants)
+    values (parent_id, new.state, 1, 1)
+    on conflict on constraint subtree_states_pkey do update 
+    set children = s.children + 1, descendants = s.descendants + 1;
+
+    -- grandparent+ tasks
+    insert into jetpack.subtree_states as s (task_id, state, descendants, children) 
+    select unnest::bigint as task_id, new.state as state, 1 as descendants, 0 as children
+    from unnest(ancestors)
+    on conflict on constraint subtree_states_pkey do update 
+    set descendants = s.descendants + 1;
+  
+  end if;
+
+	return null;
+end
+$$ language plpgsql volatile;
+
+
+create constraint trigger state_change 
+after update on jetpack.tasks
+deferrable initially deferred
+for each row
+when (old.state != new.state)
+execute procedure jetpack.update_subtree_states();
+
+create constraint trigger state_insert 
+after insert on jetpack.tasks
+deferrable initially deferred
+for each row
+execute procedure jetpack.update_subtree_states();
+
+create trigger state_delete
+after delete on jetpack.tasks
+for each row
+execute procedure jetpack.update_subtree_states();
+
+
+/*
+  triggers/on-upsert-task-set-path.sql
+*/
+drop function if exists jetpack.set_task_path cascade;
+
+create function jetpack.set_task_path () returns trigger as $$
 declare
   parent record;
 begin
@@ -359,90 +417,9 @@ $$ language plpgsql volatile;
 create trigger before_insert_task
 before insert on jetpack.tasks
 for each row
-execute procedure jetpack.before_upsert_task();
+execute procedure jetpack.set_task_path();
 
 create trigger before_update_task
 before update on jetpack.tasks
 for each row when (old.parent_id is distinct from new.parent_id)
-execute procedure jetpack.before_upsert_task();
-
-
-/*
-  create-task.sql
-*/
-drop function if exists jetpack.create_task cascade;
-
-create function jetpack.create_task(
-  machine_id uuid,
-  parent_id bigint default null,
-  params jsonb default '{}', 
-  context jsonb default '{}'
-) returns jetpack.tasks as $$
-  with machine as (
-    select initial from jetpack.machines where id = machine_id
-  )
-  insert into jetpack.tasks (machine_id, parent_id, params, context, state, attempts)
-  values (machine_id, parent_id, params, context, (select initial from machine), 0)
-  returning *;
-$$ language sql volatile;
-
-
-/*
-  dispatch-action.sql
-*/
-drop function if exists jetpack.dispatch_action cascade;
-
-create function jetpack.dispatch_action(task_id bigint, action_type text, payload jsonb default null) returns jetpack.actions as $$
-  insert into jetpack.actions (type, task_id, payload) 
-  values (action_type, task_id, payload)
-  returning *;
-$$ language sql volatile;
-
-
-/*
-  get-next-task.sql
-*/
-drop function if exists jetpack.get_next_task cascade;
-
-create function jetpack.get_next_task() returns jetpack.tasks as $$
-declare
-  next_task jetpack.tasks;
-begin
-  select * into next_task
-  from jetpack.tasks
-  where state = 'ready'
-  order by id
-  limit 1
-  for update skip locked;
-
-	if not found then 
-	  return next_task;
-	end if;
-
-  perform jetpack.dispatch_action(next_task.id, 'LOCKED_BY_WORKER');
-
-  return next_task;
-end
-$$ language plpgsql volatile;
-
-
-/*
-  subtree-states-aggregated.sql
-*/
-drop function if exists jetpack.subtree_states_aggregated;
-
-create function jetpack.subtree_states_aggregated (id bigint) returns setof jetpack.subtree_states as 
-$$
-  select * 
-  from jetpack.subtree_states 
-  where task_id = id
-  union
-  select 
-    id::bigint as task_id, 
-    'total' as state, 
-    coalesce(sum(children), 0)::int as children, 
-    coalesce(sum(descendants), 0)::int as descendants 
-  from jetpack.subtree_states 
-  where task_id = id;
-$$ 
-language sql stable;
+execute procedure jetpack.set_task_path();

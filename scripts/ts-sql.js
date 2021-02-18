@@ -20,7 +20,7 @@ async function compileFile(filePath) {
 }
 
 module.exports = function sqlWithTsImport(sql) {
-  const IMPORT_TS_RE = /:import_ts\(['"](.+)['"]\)/gm;
+  const IMPORT_TS_RE = /:import_ts\(['"](.+)['"]\);?/gm;
   return replaceAsync(sql, IMPORT_TS_RE, async (_, fileName) => {
     const filePath = path.resolve(dirname, fileName + ".ts");
     const code = await compileFile(filePath);

@@ -1,6 +1,6 @@
-drop function if exists jetpack.after_set_state cascade; 
+drop function if exists jetpack.update_subtree_states cascade; 
 
-create function jetpack.after_set_state() returns trigger as $$ 
+create function jetpack.update_subtree_states() returns trigger as $$ 
 declare
   parent_id bigint;
   ancestors text[];
@@ -71,15 +71,15 @@ after update on jetpack.tasks
 deferrable initially deferred
 for each row
 when (old.state != new.state)
-execute procedure jetpack.after_set_state();
+execute procedure jetpack.update_subtree_states();
 
 create constraint trigger state_insert 
 after insert on jetpack.tasks
 deferrable initially deferred
 for each row
-execute procedure jetpack.after_set_state();
+execute procedure jetpack.update_subtree_states();
 
 create trigger state_delete
 after delete on jetpack.tasks
 for each row
-execute procedure jetpack.after_set_state();
+execute procedure jetpack.update_subtree_states();

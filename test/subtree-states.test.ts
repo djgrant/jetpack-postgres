@@ -43,15 +43,15 @@ describe("subtree states", () => {
     await jetpack.end();
 
     const fullTreeStatesTable = await pool.query(
-      "select * from jetpack.subtree_states_aggregated(0)"
+      "select * from jetpack.get_subtree_states_agg(0)"
     );
 
     const testTaskSubtreeStatesTable = await pool.query(
-      "select * from jetpack.subtree_states_aggregated(1)"
+      "select * from jetpack.get_subtree_states_agg(1)"
     );
 
     const subTaskSubtreeStatesTable = await pool.query(
-      "select * from jetpack.subtree_states_aggregated(2)"
+      "select * from jetpack.get_subtree_states_agg(2)"
     );
 
     const getCountsByState = (table: { rows: { state: string }[] }) =>
@@ -84,5 +84,5 @@ describe("subtree states", () => {
     });
   });
 
-  it.todo("deletes hanging subtree states", async () => {});
+  it.todo("deletes hanging subtree states");
 });

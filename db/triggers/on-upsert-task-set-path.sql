@@ -1,6 +1,6 @@
-drop function if exists jetpack.before_upsert_task cascade;
+drop function if exists jetpack.set_task_path cascade;
 
-create function jetpack.before_upsert_task () returns trigger as $$
+create function jetpack.set_task_path () returns trigger as $$
 declare
   parent record;
 begin
@@ -17,9 +17,9 @@ $$ language plpgsql volatile;
 create trigger before_insert_task
 before insert on jetpack.tasks
 for each row
-execute procedure jetpack.before_upsert_task();
+execute procedure jetpack.set_task_path();
 
 create trigger before_update_task
 before update on jetpack.tasks
 for each row when (old.parent_id is distinct from new.parent_id)
-execute procedure jetpack.before_upsert_task();
+execute procedure jetpack.set_task_path();

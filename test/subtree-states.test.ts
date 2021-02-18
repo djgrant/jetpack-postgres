@@ -1,5 +1,5 @@
 import { migrate, connectionString } from "./setup/arrange";
-import { Jetpack, createTaskMachine, ops } from "../src";
+import { Jetpack, createTaskMachine, ops, SubtreeStatesRow } from "../src";
 import { Pool } from "pg";
 
 const pool = new Pool({ connectionString });
@@ -54,16 +54,16 @@ describe("subtree states", () => {
       "select * from jetpack.get_subtree_states_agg(2)"
     );
 
-    const getCountsByState = (table: { rows: { state: string }[] }) =>
+    const getCountsByState = (table: { rows: SubtreeStatesRow[] }) =>
       table.rows.reduce(
-        (acc, row) => ({
+        (acc, { state, children, descendants }) => ({
           ...acc,
-          [row.state]: row,
+          [state]: { children, descendants },
         }),
         {}
       );
 
-    expect(getCountsByState(fullTreeStatesTable)).toMatchObject({
+    expect(getCountsByState(fullTreeStatesTable)).toEqual({
       total: { children: 1, descendants: 2 },
       done: { children: 1, descendants: 2 },
       ready: { children: 0, descendants: 0 },
@@ -71,7 +71,7 @@ describe("subtree states", () => {
       failed: { children: 0, descendants: 0 },
     });
 
-    expect(getCountsByState(testTaskSubtreeStatesTable)).toMatchObject({
+    expect(getCountsByState(testTaskSubtreeStatesTable)).toEqual({
       total: { children: 1, descendants: 1 },
       done: { children: 1, descendants: 1 },
       running: { children: 0, descendants: 0 },
@@ -79,7 +79,7 @@ describe("subtree states", () => {
       failed: { children: 0, descendants: 0 },
     });
 
-    expect(getCountsByState(subTaskSubtreeStatesTable)).toMatchObject({
+    expect(getCountsByState(subTaskSubtreeStatesTable)).toEqual({
       total: { children: 0, descendants: 0 },
     });
   });

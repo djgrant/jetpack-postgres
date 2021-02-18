@@ -30,3 +30,10 @@ export interface TaskRow {
   attempts: number;
   locked: boolean;
 }
+
+export interface SubtreeStatesRow {
+  task_id: string; // bigint
+  state: string;
+  children: number;
+  descendants: number;
+}

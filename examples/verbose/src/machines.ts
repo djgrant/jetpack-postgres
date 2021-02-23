@@ -1,7 +1,11 @@
-#!/usr/bin/env ts-node-script
-import { createBaseMachine, Jetpack } from "@djgrant/jetpack";
+import { createBaseMachine } from "@djgrant/jetpack";
 
-const taskMachine = createBaseMachine({
+/*
+  This is a raw implementation of a task machine for learning purposes.
+  In real world apps you would just use createTaskMachine!
+*/
+
+export const taskMachine = createBaseMachine({
   name: "Base machine example",
   initial: "ready",
   states: {
@@ -35,27 +39,11 @@ const taskMachine = createBaseMachine({
         },
       },
     },
-    done: {
-      onEvent: {
-        ENTER: {
-          type: "create_sub_task",
-          machine_id: "$self",
-          parent_id: "$self",
-        },
-      },
-    },
+    done: {},
     abandoned: {},
   },
 });
 
-taskMachine.onRunning(() => {
+taskMachine.onRunning(async () => {
   console.log("Base machine example running!");
-});
-
-const jetpack = new Jetpack({
-  db: "postgres://danielgrant@localhost:5432/jetpack",
-});
-
-jetpack.runWorker({
-  machines: [taskMachine],
 });

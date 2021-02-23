@@ -1,0 +1,13 @@
+{
+  "name": "jetpack-verbose-example",
+  "scripts": {
+    "start": "ts-node src/worker.ts"
+  },
+  "dependencies": {
+    "@djgrant/jetpack": "next"
+  },
+  "devDependencies": {
+    "ts-node": "^9.1.1",
+    "typescript": "^4.1.5"
+  }
+}

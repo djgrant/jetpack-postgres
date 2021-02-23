@@ -20,6 +20,15 @@ import {
   ValueOperator,
 } from "./interfaces/operators";
 
+type Late<T> = T | (() => T);
+
+function late(val: Late<any>) {
+  if (typeof val === "function") {
+    return val();
+  }
+  return val;
+}
+
 export const noOp = (): NoOpOperator => ({
   type: "no_op",
 });
@@ -40,18 +49,18 @@ export const changeState = (newState: string): ChangeStateOperator => ({
 });
 
 export const createSubTask = (opts: {
-  machine: { id: string };
+  machine: Late<{ id: string }>;
 }): CreateSubTaskOperator => ({
   type: "create_sub_task",
-  machine_id: opts.machine.id,
+  machine_id: late(opts.machine).id,
   parent_id: "$self",
 });
 
 export const createRootTask = (opts: {
-  machine: { id: string };
+  machine: Late<{ id: string }>;
 }): CreateRootTaskOperator => ({
   type: "create_root_task",
-  machine_id: opts.machine.id,
+  machine_id: late(opts.machine).id,
 });
 
 export const self = () => ({

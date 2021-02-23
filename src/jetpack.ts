@@ -9,7 +9,7 @@ type Logger = (...msgs: any) => void;
 
 export interface JetpackOptions {
   db: DbConnection;
-  machines: Machine[];
+  machines: Machine[] | Record<string, Machine>;
   logger?: Logger;
 }
 
@@ -23,7 +23,7 @@ export class Jetpack {
 
   constructor(opts: JetpackOptions) {
     this.db = new Db(opts.db);
-    this.machines = opts.machines;
+    this.machines = Object.values(opts.machines);
     this.log = opts.logger || log;
     this.workerPromise = Promise.resolve();
     this.readyPromise = this.init().catch(err => this.end(err));

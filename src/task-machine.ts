@@ -1,11 +1,12 @@
 import { createBaseMachine } from "./machine";
-import { Transitions } from "./interfaces/machine";
+import { TaskHandler, Transitions } from "./interfaces";
 import * as ops from "./operators";
 
 export interface TaskMachineOptions {
   name: string;
   maxAttempts: number;
   states?: Transitions;
+  task?: TaskHandler;
 }
 
 const retry = (maxAttempts: number) =>
@@ -19,9 +20,11 @@ export const createTaskMachine = ({
   name,
   maxAttempts,
   states,
+  task,
 }: TaskMachineOptions) =>
   createBaseMachine({
     name: name,
+    task,
     initial: "ready",
     states: {
       ...states,

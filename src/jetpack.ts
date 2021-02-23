@@ -3,7 +3,7 @@ import { Db, DbConnection, NewTask, TaskRow } from "./internal/db";
 import { log } from "./internal/utils";
 import { POLL_INTERVAL } from "./internal/config";
 import { Machine } from "./machine";
-import { Execution } from "./internal/execution";
+import { Execution } from "./interfaces/execution";
 
 type Logger = (...msgs: any) => void;
 
@@ -104,7 +104,7 @@ export class Jetpack {
 
     if (!machine.taskHandler) {
       this.log(
-        `onRunning was not called on machine ${machine.id}. Skipping execution.`
+        `No task handler for machine ${machine.id}. Skipping execution.`
       );
       return;
     }

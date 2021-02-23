@@ -1,4 +1,4 @@
-import { TaskRow } from "../interfaces";
+import { TaskRow } from "./db-schema";
 
 export class Execution {
   id: string;
@@ -21,3 +21,5 @@ export class Execution {
     console.log(...msgs);
   }
 }
+
+export type TaskHandler = (execution: Execution) => Promise<any>;

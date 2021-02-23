@@ -1,13 +1,11 @@
 import { v5 as uuidV5 } from "uuid";
-import { Transitions } from "./interfaces/machine";
-import { Execution } from "./internal/execution";
-
-type TaskHandler = (execution: Execution) => Promise<any>;
+import { TaskHandler, Transitions } from "./interfaces";
 
 export interface MachineOptions {
   name: string;
   initial: string;
   states: Transitions;
+  task?: TaskHandler;
 }
 
 export class Machine {
@@ -22,7 +20,7 @@ export class Machine {
     this.name = opts.name;
     this.initial = opts.initial;
     this.transitions = opts.states;
-    this.taskHandler = undefined;
+    this.taskHandler = opts.task;
   }
 
   onRunning(cb: TaskHandler) {

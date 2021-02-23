@@ -1,13 +1,44 @@
 #!/usr/bin/env ts-node-script
-import { Jetpack, createTaskMachine, ops } from "@djgrant/jetpack";
+import {
+  Jetpack,
+  createBaseMachine,
+  createTaskMachine,
+  ops,
+} from "@djgrant/jetpack";
+
+const subtreeFailureMachine = createTaskMachine({
+  name: "Subtree Failure",
+  maxAttempts: 3,
+});
 
 const taskMachine = createTaskMachine({
-  name: "Task machine example",
+  name: "Task machine",
   maxAttempts: 3,
   states: {
     done: {
       onEvent: {
         ENTER: ops.createSubTask({ machine: ops.self() }),
+      },
+    },
+  },
+});
+
+const rootMachine = createBaseMachine({
+  name: "Root machine",
+  initial: "done",
+  states: {
+    done: {
+      onEvent: {
+        ENTER: ops.createSubTask({ machine: taskMachine }),
+        SUBTREE_UPDATE: ops.condition({
+          when: ops.all([
+            ops.subtree.all("done", "abandoned"),
+            ops.subtree.some("abandoned"),
+          ]),
+          then: ops.createRootTask({
+            machine: subtreeFailureMachine,
+          }),
+        }),
       },
     },
   },
@@ -25,11 +56,15 @@ taskMachine.onRunning(async self => {
   }
 });
 
-const jetpack = new Jetpack({
-  db: "postgres://danielgrant@localhost:5432/jetpack",
-  machines: [taskMachine],
+subtreeFailureMachine.onRunning(async () => {
+  console.log("Task machine subtree failed!");
 });
 
-jetpack.createTask({ machine: taskMachine }).catch(console.log);
+const jetpack = new Jetpack({
+  db: "postgres://danielgrant@localhost:5432/jetpack",
+  machines: [rootMachine, taskMachine, subtreeFailureMachine],
+});
+
+jetpack.createTask({ machine: rootMachine }).catch(console.log);
 
 jetpack.runWorker();

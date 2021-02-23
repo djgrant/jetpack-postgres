@@ -116,24 +116,27 @@ create function jetpack.eval_transition() returns trigger as $$
         }
     }
     function evaluateOperator(operator, task) {
+        var cache = {};
         function evalOp(op) {
+            var _a;
+            // Syntactic sugar
             if (typeof op === "string") {
                 return changeState(op);
             }
+            // Logical
             if (op.type === "condition") {
-                var when = evalOp(op.when);
-                if (!isValueOperator(when))
-                    throwValueOpError();
+                var when = evalToValueOperator(op.when);
                 var isPass = Boolean(when.value);
                 return isPass ? evalOp(op.then) : op["else"] ? evalOp(op["else"]) : noOp();
             }
-            if (op.type === "lt" || op.type === "lte") {
-                var left = evalComparable(op.left);
-                var right = evalComparable(op.right);
-                if (!isValueOperator(left))
-                    throwValueOpError();
-                if (!isValueOperator(right))
-                    throwValueOpError();
+            // Comparison
+            if ("left" in op && "right" in op) {
+                var left = evalToValueOperator(op.left);
+                var right = evalToValueOperator(op.right);
+                if (op.type === "eq") {
+                    return value(left.value === right.value);
+                }
+                // Numeric
                 if (typeof left.value !== "number" || typeof right.value !== "number") {
                     return value(false);
                 }
@@ -143,7 +146,35 @@ create function jetpack.eval_transition() returns trigger as $$
                 if (op.type === "lt") {
                     return value(left.value < right.value);
                 }
+                if (op.type === "gte") {
+                    return value(left.value >= right.value);
+                }
+                if (op.type === "gt") {
+                    return value(left.value > right.value);
+                }
             }
+            if (op.type === "any") {
+                var valueOperators = op.values.map(evalToValueOperator);
+                return value(valueOperators.some(function (valueOperator) { return Boolean(valueOperator.value); }));
+            }
+            if (op.type === "all") {
+                var valueOperators = op.values.map(evalToValueOperator);
+                return value(valueOperators.every(function (valueOperator) { return Boolean(valueOperator.value); }));
+            }
+            // Arithmetic
+            if (op.type === "sum") {
+                var numberOperators = op.values.map(evalToValueOperator);
+                var total = 0;
+                for (var _i = 0, numberOperators_1 = numberOperators; _i < numberOperators_1.length; _i++) {
+                    var numberOperator = numberOperators_1[_i];
+                    if (typeof numberOperator.value !== "number") {
+                        throw new Error("Value operator must contain a number");
+                    }
+                    total += numberOperator.value;
+                }
+                return value(total);
+            }
+            // Getters
             if (op.type === "params") {
                 return value(task.params[op.path]);
             }
@@ -153,11 +184,27 @@ create function jetpack.eval_transition() returns trigger as $$
             if (op.type === "attempts") {
                 return value(task.attempts);
             }
+            if (op.type === "subtree_state_count") {
+                if (!cache.subtree) {
+                    var subtreeQuery = plv8.prepare("select * from jetpack.get_subtree_states_agg($1)", ["bigint"]);
+                    var subtreeStates = subtreeQuery.execute([task.id]);
+                    cache.subtree = {};
+                    for (var _b = 0, subtreeStates_1 = subtreeStates; _b < subtreeStates_1.length; _b++) {
+                        var row = subtreeStates_1[_b];
+                        cache.subtree[row.state] = row.descendants;
+                    }
+                }
+                return value(((_a = cache.subtree) === null || _a === void 0 ? void 0 : _a[op.state]) || 0);
+            }
             return op;
         }
-        function evalComparable(input) {
+        function evalToValueOperator(input) {
             if (input !== null && typeof input === "object" && "type" in input) {
-                return evalOp(input);
+                var value$1 = evalOp(input);
+                if (!isValueOperator(value$1)) {
+                    throw new Error("Operator must ulimately return a value type");
+                }
+                return value$1;
             }
             return value(input);
         }
@@ -168,9 +215,6 @@ create function jetpack.eval_transition() returns trigger as $$
             return false;
         }
         return true;
-    }
-    function throwValueOpError() {
-        throw new Error("Condition must ulimately return a value type");
     }
 
     function createTask(task) {
@@ -266,7 +310,7 @@ execute procedure jetpack.eval_transition();
 
 
 /*
-  triggers/on-new-state-eval-enter-transition.sql
+  triggers/on-new-state-dispatch-enter-transition.sql
 */
 drop function if exists jetpack.eval_enter_transition cascade;
 
@@ -279,19 +323,18 @@ create function jetpack.eval_enter_transition() returns trigger as $$
       dispatchActionQuery.execute([taskId, action]);
   }
 
-  function afterUpdateTaskState() {
-      var _a, _b;
+  function onNewTaskState() {
+      var _a;
       var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
       var machine = transitionsQuery.execute([NEW.machine_id])[0];
-      if (!machine)
-          return null;
-      var onEnterOperation = (_b = (_a = machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b.ENTER;
-      if (!onEnterOperation)
-          return null;
-      dispatchAction(NEW.id, "ENTER");
+      var onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
+      if ("ENTER" in onEvent) {
+          dispatchAction(NEW.id, "ENTER");
+      }
+      return null;
   }
 
-  return afterUpdateTaskState;
+  return onNewTaskState;
 
 }());
 
@@ -302,6 +345,11 @@ create trigger after_update_state
 after update on jetpack.tasks
 for each row
 when (old.state is distinct from new.state)
+execute procedure jetpack.eval_enter_transition();
+
+create trigger after_insert_state
+after insert on jetpack.tasks
+for each row
 execute procedure jetpack.eval_enter_transition();
 
 
@@ -393,6 +441,51 @@ create trigger state_delete
 after delete on jetpack.tasks
 for each row
 execute procedure jetpack.update_subtree_states();
+
+
+/*
+  triggers/on-new-subtree-dispatch-subtree-action.sql
+*/
+drop function if exists jetpack.dispatch_subtree_action cascade;
+
+create function jetpack.dispatch_subtree_action() returns trigger as $$
+  var module = (function () {
+  'use strict';
+
+  function dispatchAction(taskId, action) {
+      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
+      dispatchActionQuery.execute([taskId, action]);
+  }
+
+  function evalSubtreeActions() {
+      var _a;
+      if (Number(NEW.task_id) === 0)
+          return null;
+      var machineQuery = plv8.prepare("select m.*, t.state as task_state from jetpack.machines m\n    inner join jetpack.tasks t\n    on t.machine_id = m.id\n    and t.id = $1", ["bigint"]);
+      var machine = machineQuery.execute([NEW.task_id])[0];
+      var onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[machine.task_state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
+      if ("SUBTREE_UPDATE" in onEvent) {
+          dispatchAction(NEW.task_id, "SUBTREE_UPDATE");
+      }
+      return null;
+  }
+
+  return evalSubtreeActions;
+
+}());
+
+ return module();
+$$ language plv8 volatile;
+
+create trigger after_update_subtree_state
+after update on jetpack.subtree_states
+for each row
+execute function jetpack.dispatch_subtree_action();
+
+create trigger after_insert_subtree_state
+after insert on jetpack.subtree_states
+for each row
+execute function jetpack.dispatch_subtree_action();
 
 
 /*

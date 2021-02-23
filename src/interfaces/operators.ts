@@ -2,6 +2,7 @@ export type Operator =
   | ValueOperator
   | LogicalOperator
   | ComparisonOperator
+  | ArithmeticOperators
   | GetterOperator
   | EffectOperator;
 
@@ -13,12 +14,17 @@ export type ComparisonOperator =
   | GteOperator
   | GtOperator
   | EqOperator
-  | NotEqOperator;
+  | NotEqOperator
+  | AnyOperator
+  | AllOperator;
+
+export type ArithmeticOperators = SumOperator;
 
 export type GetterOperator =
   | ParamsOperator
   | ContextOperator
-  | AttemptsOperator;
+  | AttemptsOperator
+  | SubtreeStateCountOperator;
 
 export type EffectOperator =
   | string
@@ -32,35 +38,37 @@ export type EffectOperator =
   | DispatchActionToParentOperator
   | DispatchActionToSiblingsOperator;
 
-interface Base {
-  type: string;
-}
-
 export type Primitive = string | number | boolean | null;
+
+export type EvaluableOperator =
+  | Primitive
+  | LogicalOperator
+  | ComparisonOperator
+  | GetterOperator
+  | ValueOperator
+  | ArithmeticOperators;
 
 export interface ValueOperator {
   type: "value";
   value: Primitive;
 }
 
+interface Base {
+  type: string;
+}
+
 // Logical
 export interface ConditionOperator extends Base {
   type: "condition";
-  when: ValueOperator | LogicalOperator | ComparisonOperator | GetterOperator;
+  when: EvaluableOperator;
   then: Operator;
   else?: Operator;
 }
 
 // Comparison
-export type Comparable =
-  | Primitive
-  | LogicalOperator
-  | ComparisonOperator
-  | GetterOperator;
-
 interface ComparisonBase extends Base {
-  left: Comparable;
-  right: Comparable;
+  left: EvaluableOperator;
+  right: EvaluableOperator;
 }
 
 export interface LteOperator extends ComparisonBase {
@@ -87,6 +95,22 @@ export interface NotEqOperator extends ComparisonBase {
   type: "not_eq";
 }
 
+export interface AnyOperator extends Base {
+  type: "any";
+  values: EvaluableOperator[];
+}
+
+export interface AllOperator extends Base {
+  type: "all";
+  values: EvaluableOperator[];
+}
+
+// Arithmetic
+export interface SumOperator extends Base {
+  type: "sum";
+  values: (number | EvaluableOperator)[];
+}
+
 // Getter
 export interface ParamsOperator extends Base {
   type: "params";
@@ -102,8 +126,12 @@ export interface AttemptsOperator extends Base {
   type: "attempts";
 }
 
-// Effects
+export interface SubtreeStateCountOperator extends Base {
+  type: "subtree_state_count";
+  state: string;
+}
 
+// Effects
 export interface NoOpOperator extends Base {
   type: "no_op";
 }

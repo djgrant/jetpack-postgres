@@ -1,11 +1,16 @@
 import {
   ops,
-  Comparable,
+  EvaluableOperator,
   Operator,
   ValueOperator,
   EffectOperator,
   TaskRow,
+  SubtreeStatesAggRow,
 } from "@djgrant/jetpack";
+
+interface Cache {
+  subtree?: Record<string, number>;
+}
 
 export function evaluateOperation(
   operation: Operator,
@@ -22,23 +27,31 @@ export function evaluateOperator(
   operator: Operator,
   task: TaskRow
 ): EffectOperator {
+  const cache: Cache = {};
+
   function evalOp(op: Operator): Operator {
+    // Syntactic sugar
     if (typeof op === "string") {
       return ops.changeState(op);
     }
 
+    // Logical
     if (op.type === "condition") {
-      const when = evalOp(op.when);
-      if (!isValueOperator(when)) throwValueOpError();
+      const when = evalToValueOperator(op.when);
       const isPass = Boolean(when.value);
       return isPass ? evalOp(op.then) : op.else ? evalOp(op.else) : ops.noOp();
     }
 
-    if (op.type === "lt" || op.type === "lte") {
-      const left = evalComparable(op.left);
-      const right = evalComparable(op.right);
-      if (!isValueOperator(left)) throwValueOpError();
-      if (!isValueOperator(right)) throwValueOpError();
+    // Comparison
+    if ("left" in op && "right" in op) {
+      const left = evalToValueOperator(op.left);
+      const right = evalToValueOperator(op.right);
+
+      if (op.type === "eq") {
+        return ops.value(left.value === right.value);
+      }
+
+      // Numeric
       if (typeof left.value !== "number" || typeof right.value !== "number") {
         return ops.value(false);
       }
@@ -48,8 +61,44 @@ export function evaluateOperator(
       if (op.type === "lt") {
         return ops.value(left.value < right.value);
       }
+      if (op.type === "gte") {
+        return ops.value(left.value >= right.value);
+      }
+      if (op.type === "gt") {
+        return ops.value(left.value > right.value);
+      }
     }
 
+    if (op.type === "any") {
+      const valueOperators = op.values.map(evalToValueOperator);
+      return ops.value(
+        valueOperators.some(valueOperator => Boolean(valueOperator.value))
+      );
+    }
+
+    if (op.type === "all") {
+      const valueOperators = op.values.map(evalToValueOperator);
+      return ops.value(
+        valueOperators.every(valueOperator => Boolean(valueOperator.value))
+      );
+    }
+
+    // Arithmetic
+    if (op.type === "sum") {
+      const numberOperators = op.values.map(evalToValueOperator);
+
+      let total = 0;
+      for (const numberOperator of numberOperators) {
+        if (typeof numberOperator.value !== "number") {
+          throw new Error("Value operator must contain a number");
+        }
+        total += numberOperator.value;
+      }
+
+      return ops.value(total);
+    }
+
+    // Getters
     if (op.type === "params") {
       return ops.value(task.params[op.path]);
     }
@@ -62,12 +111,31 @@ export function evaluateOperator(
       return ops.value(task.attempts);
     }
 
+    if (op.type === "subtree_state_count") {
+      if (!cache.subtree) {
+        const subtreeQuery = plv8.prepare<SubtreeStatesAggRow>(
+          `select * from jetpack.get_subtree_states_agg($1)`,
+          ["bigint"]
+        );
+        const subtreeStates = subtreeQuery.execute([task.id]);
+        cache.subtree = {};
+        for (const row of subtreeStates) {
+          cache.subtree[row.state] = row.descendants;
+        }
+      }
+      return ops.value(cache.subtree?.[op.state] || 0);
+    }
+
     return op;
   }
 
-  function evalComparable(input: Comparable) {
+  function evalToValueOperator(input: EvaluableOperator): ValueOperator {
     if (input !== null && typeof input === "object" && "type" in input) {
-      return evalOp(input);
+      const value = evalOp(input);
+      if (!isValueOperator(value)) {
+        throw new Error("Operator must ulimately return a value type");
+      }
+      return value;
     }
     return ops.value(input);
   }
@@ -80,8 +148,4 @@ function isValueOperator(op: Operator): op is ValueOperator {
     return false;
   }
   return true;
-}
-
-function throwValueOpError(): never {
-  throw new Error("Condition must ulimately return a value type");
 }

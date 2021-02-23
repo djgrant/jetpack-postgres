@@ -417,10 +417,10 @@ export const bookHoliday = createBaseMachine({
 
 // Implementation of ops.children looks like this
 const children = {
-  count: (state: string) => ({ type: "children_count", state }),
+  count: (state: string) => ({ type: "children_state_count", state }),
   all: (...states: string[]) =>
     ops.eq(
-      ops.sum(state.map(state => ops.children.count(state))),
+      ops.sum(states.map(state => ops.children.count(state))),
       ops.children.count("total")
     ),
   some: (...states: string[]) =>

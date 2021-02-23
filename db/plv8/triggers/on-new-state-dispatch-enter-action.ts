@@ -3,17 +3,18 @@ import { dispatchAction } from "../queries";
 
 declare const NEW: TaskRow;
 
-export default function afterUpdateTaskState() {
+export default function onNewTaskState() {
   const transitionsQuery = plv8.prepare<MachineRow>(
     "select transitions from jetpack.machines where id = $1",
     ["uuid"]
   );
 
   const [machine] = transitionsQuery.execute([NEW.machine_id]);
-  if (!machine) return null;
+  const onEvent = machine?.transitions[NEW.state]?.onEvent || {};
 
-  const onEnterOperation = machine.transitions[NEW.state]?.onEvent?.ENTER;
-  if (!onEnterOperation) return null;
+  if ("ENTER" in onEvent) {
+    dispatchAction(NEW.id, "ENTER");
+  }
 
-  dispatchAction(NEW.id, "ENTER");
+  return null;
 }

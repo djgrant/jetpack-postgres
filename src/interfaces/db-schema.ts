@@ -37,3 +37,10 @@ export interface SubtreeStatesRow {
   children: number;
   descendants: number;
 }
+
+export interface SubtreeStatesAggRow {
+  id: string; // bigint
+  state: string;
+  children: number;
+  descendants: number;
+}

@@ -1,16 +1,22 @@
 import {
+  AllOperator,
+  AnyOperator,
   AttemptsOperator,
   ChangeStateOperator,
-  Comparable,
   ConditionOperator,
   CreateRootTaskOperator,
   CreateSubTaskOperator,
+  EqOperator,
   ErrorOperator,
+  EvaluableOperator,
+  GteOperator,
   IncrementAttemptsOperator,
   LteOperator,
   LtOperator,
   NoOpOperator,
   Primitive,
+  SubtreeStateCountOperator,
+  SumOperator,
   ValueOperator,
 } from "./interfaces/operators";
 
@@ -67,14 +73,66 @@ export const incrementAttempts = (): IncrementAttemptsOperator => ({
   type: "increment_attempts",
 });
 
-export const lte = (left: Comparable, right: Comparable): LteOperator => ({
+export const lte = (
+  left: EvaluableOperator,
+  right: EvaluableOperator
+): LteOperator => ({
   type: "lte",
   left,
   right,
 });
 
-export const lt = (left: Comparable, right: Comparable): LtOperator => ({
+export const gte = (
+  left: EvaluableOperator,
+  right: EvaluableOperator
+): GteOperator => ({
+  type: "gte",
+  left,
+  right,
+});
+
+export const lt = (
+  left: EvaluableOperator,
+  right: EvaluableOperator
+): LtOperator => ({
   type: "lt",
   left,
   right,
 });
+
+export const eq = (
+  left: EvaluableOperator,
+  right: EvaluableOperator
+): EqOperator => ({
+  type: "eq",
+  left,
+  right,
+});
+
+export const any = (values: EvaluableOperator[]): AnyOperator => ({
+  type: "any",
+  values,
+});
+
+export const all = (values: EvaluableOperator[]): AllOperator => ({
+  type: "all",
+  values,
+});
+
+export const sum = (values: EvaluableOperator[]): SumOperator => ({
+  type: "sum",
+  values,
+});
+
+export const subtree = {
+  count: (state: string): SubtreeStateCountOperator => ({
+    type: "subtree_state_count",
+    state,
+  }),
+
+  all: (...states: string[]) =>
+    eq(sum(states.map(subtree.count)), subtree.count("total")),
+
+  some: (...states: string[]) =>
+    any(states.map(state => gte(subtree.count(state), 1))),
+};

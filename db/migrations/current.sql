@@ -279,20 +279,26 @@ create function jetpack.eval_transition() returns trigger as $$
         }
         NEW.previous_state = task.state;
         NEW.new_state = task.state;
-        NEW.operation = noOp();
+        NEW.operations = [noOp()];
         var machine = transitionsQuery.execute([task.machine_id])[0];
         if (!machine)
             return NEW;
         var operation = (_b = (_a = machine.transitions[task.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b[type];
         if (!operation)
             return NEW;
-        var effectOperator = evaluateOperation(operation, task);
-        var effectedTask = runEffect(effectOperator, task);
-        if (effectedTask) {
-            var updatedTask = updateTask(effectedTask);
-            NEW.new_state = updatedTask.state;
+        var operations = [].concat(operation);
+        var effectOperators = [];
+        for (var _i = 0, operations_1 = operations; _i < operations_1.length; _i++) {
+            var operation_1 = operations_1[_i];
+            var effectOperator = evaluateOperation(operation_1, task);
+            var effectedTask = runEffect(effectOperator, task);
+            if (effectedTask) {
+                var updatedTask = updateTask(effectedTask);
+                NEW.new_state = updatedTask.state;
+            }
+            effectOperators.push(effectOperator);
         }
-        NEW.operation = effectOperator;
+        NEW.operations = effectOperators;
         return NEW;
     }
 
@@ -446,9 +452,26 @@ execute procedure jetpack.update_subtree_states();
 /*
   triggers/on-new-subtree-dispatch-subtree-action.sql
 */
+drop function if exists jetpack.dispatch_subtree_action_once cascade;
 drop function if exists jetpack.dispatch_subtree_action cascade;
 
-create function jetpack.dispatch_subtree_action() returns trigger as $$
+create function jetpack.dispatch_subtree_action_once() returns trigger as $$
+declare
+  has_run int;
+begin
+  create temp table if not exists transaction_runs (id serial primary key, run boolean);
+  select id into runs from transaction_runs;
+  if (has_run is not null) then
+    return null;
+  else if
+    insert into transaction_runs (run) values (true);
+    execute jetpack.dispatch_subtree_action(NEW);
+  end if;
+end
+$$ language plpgsql volatile;
+
+
+create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_states) returns null as $$
   var module = (function () {
   'use strict';
 
@@ -459,13 +482,13 @@ create function jetpack.dispatch_subtree_action() returns trigger as $$
 
   function evalSubtreeActions() {
       var _a;
-      if (Number(NEW.task_id) === 0)
+      if (Number(subtree_state.task_id) === 0)
           return null;
       var machineQuery = plv8.prepare("select m.*, t.state as task_state from jetpack.machines m\n    inner join jetpack.tasks t\n    on t.machine_id = m.id\n    and t.id = $1", ["bigint"]);
-      var machine = machineQuery.execute([NEW.task_id])[0];
+      var machine = machineQuery.execute([subtree_state.task_id])[0];
       var onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[machine.task_state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
       if ("SUBTREE_UPDATE" in onEvent) {
-          dispatchAction(NEW.task_id, "SUBTREE_UPDATE");
+          dispatchAction(subtree_state.task_id, "SUBTREE_UPDATE");
       }
       return null;
   }
@@ -477,15 +500,17 @@ create function jetpack.dispatch_subtree_action() returns trigger as $$
  return module();
 $$ language plv8 volatile;
 
-create trigger after_update_subtree_state
+create constraint trigger after_update_subtree_state
 after update on jetpack.subtree_states
+deferrable initially deferred
 for each row
-execute function jetpack.dispatch_subtree_action();
+execute function jetpack.dispatch_subtree_action_once();
 
-create trigger after_insert_subtree_state
+create constraint trigger after_insert_subtree_state
 after insert on jetpack.subtree_states
+deferrable initially deferred
 for each row
-execute function jetpack.dispatch_subtree_action();
+execute function jetpack.dispatch_subtree_action_once();
 
 
 /*

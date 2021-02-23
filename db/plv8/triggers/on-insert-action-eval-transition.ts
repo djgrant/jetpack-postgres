@@ -1,4 +1,10 @@
-import { ops, MachineRow, ActionRow, TaskRow } from "@djgrant/jetpack";
+import {
+  ops,
+  MachineRow,
+  ActionRow,
+  TaskRow,
+  Operation,
+} from "@djgrant/jetpack";
 import { evaluateOperation, runEffect } from "../interpreter";
 import { updateTask } from "../queries/update-task";
 
@@ -25,7 +31,7 @@ export default function beforeInsertAction() {
 
   NEW.previous_state = task.state;
   NEW.new_state = task.state;
-  NEW.operation = ops.noOp();
+  NEW.operations = [ops.noOp()];
 
   const [machine] = transitionsQuery.execute([task.machine_id]);
   if (!machine) return NEW;
@@ -33,15 +39,22 @@ export default function beforeInsertAction() {
   const operation = machine.transitions[task.state]?.onEvent?.[type];
   if (!operation) return NEW;
 
-  const effectOperator = evaluateOperation(operation, task);
-  const effectedTask = runEffect(effectOperator, task);
+  const operations = ([] as Operation[]).concat(operation);
+  const effectOperators = [];
 
-  if (effectedTask) {
-    const updatedTask = updateTask(effectedTask);
-    NEW.new_state = updatedTask.state;
+  for (const operation of operations) {
+    const effectOperator = evaluateOperation(operation, task);
+    const effectedTask = runEffect(effectOperator, task);
+
+    if (effectedTask) {
+      const updatedTask = updateTask(effectedTask);
+      NEW.new_state = updatedTask.state;
+    }
+
+    effectOperators.push(effectOperator);
   }
 
-  NEW.operation = effectOperator;
+  NEW.operations = effectOperators;
 
   return NEW;
 }

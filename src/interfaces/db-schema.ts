@@ -15,7 +15,7 @@ export interface ActionRow {
   payload: Record<string, any>;
   previous_state: string;
   new_state: string;
-  operation: EffectOperator;
+  operations: EffectOperator[];
   timestamp: Date;
 }
 

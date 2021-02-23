@@ -118,17 +118,17 @@ export const eq = (
   right,
 });
 
-export const any = (values: EvaluableOperator[]): AnyOperator => ({
+export const any = (...values: EvaluableOperator[]): AnyOperator => ({
   type: "any",
   values,
 });
 
-export const all = (values: EvaluableOperator[]): AllOperator => ({
+export const all = (...values: EvaluableOperator[]): AllOperator => ({
   type: "all",
   values,
 });
 
-export const sum = (values: EvaluableOperator[]): SumOperator => ({
+export const sum = (...values: EvaluableOperator[]): SumOperator => ({
   type: "sum",
   values,
 });
@@ -140,8 +140,8 @@ export const subtree = {
   }),
 
   all: (...states: string[]) =>
-    eq(sum(states.map(subtree.count)), subtree.count("total")),
+    eq(sum(...states.map(subtree.count)), subtree.count("total")),
 
   some: (...states: string[]) =>
-    any(states.map(state => gte(subtree.count(state), 1))),
+    any(...states.map(state => gte(subtree.count(state), 1))),
 };

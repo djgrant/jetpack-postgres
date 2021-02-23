@@ -7,7 +7,7 @@ export interface Transitions {
 }
 
 export interface TransitionMap {
-  [action: string]: Operation;
+  [action: string]: Operation | Operation[];
 }
 
 export type Operation = EffectOperator | LogicalOperator;

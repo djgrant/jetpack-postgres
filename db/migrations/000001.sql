@@ -32,7 +32,7 @@ create table jetpack.actions (
   task_id bigint not null,
   type text not null,
   payload jsonb,
-  operation jsonb not null,
+  operations jsonb not null,
   previous_state text not null,
   new_state text not null,
   timestamp timestamptz not null default now()

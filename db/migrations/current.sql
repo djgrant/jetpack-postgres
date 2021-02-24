@@ -457,21 +457,26 @@ drop function if exists jetpack.dispatch_subtree_action cascade;
 
 create function jetpack.dispatch_subtree_action_once() returns trigger as $$
 declare
-  has_run int;
+  already_run int;
 begin
-  create temp table if not exists transaction_runs (id serial primary key, run boolean);
-  select id into runs from transaction_runs;
-  if (has_run is not null) then
+  create temp table if not exists transaction_attempts (
+    task_id bigint primary key
+  ) on commit drop;
+
+  select task_id into already_run from transaction_attempts where task_id = NEW.task_id;
+
+  if (already_run is not null) then
     return null;
-  else if
-    insert into transaction_runs (run) values (true);
-    execute jetpack.dispatch_subtree_action(NEW);
+  else
+    insert into transaction_attempts (task_id) values (NEW.task_id);
+    perform jetpack.dispatch_subtree_action(NEW);
+    return null;
   end if;
 end
 $$ language plpgsql volatile;
 
 
-create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_states) returns null as $$
+create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_states) returns void as $$
   var module = (function () {
   'use strict';
 

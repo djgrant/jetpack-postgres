@@ -1,11 +1,11 @@
 import { v5 as uuidV5 } from "uuid";
-import { TaskHandler, Transitions } from "./interfaces";
+import { Task, Transitions } from "./interfaces";
 
 export interface MachineOptions {
   name: string;
   initial: string;
   states: Transitions;
-  task?: TaskHandler;
+  task?: Task;
 }
 
 export class Machine {
@@ -13,18 +13,18 @@ export class Machine {
   name: string;
   initial: string;
   transitions: Transitions;
-  taskHandler?: TaskHandler;
+  task?: Task;
 
   constructor(opts: MachineOptions) {
     this.id = createMachineId(opts);
     this.name = opts.name;
     this.initial = opts.initial;
     this.transitions = opts.states;
-    this.taskHandler = opts.task;
+    this.task = opts.task;
   }
 
-  onRunning(cb: TaskHandler) {
-    this.taskHandler = cb;
+  onRunning(cb: Task) {
+    this.task = cb;
     return this;
   }
 }

@@ -1,16 +1,19 @@
-import { TaskRow } from "./db-schema";
+import { TaskRow } from "../interfaces";
+import { Db } from "./db";
 
 export class Execution {
   id: string;
   params: {};
   context: {};
   attempts: number;
+  db: Db;
 
-  constructor(task: TaskRow) {
+  constructor({ task, db }: { task: TaskRow; db: Db }) {
     this.id = task.id;
     this.params = task.params;
     this.context = task.context;
     this.attempts = task.attempts;
+    this.db = db;
   }
 
   setContext(patch: {}) {
@@ -21,5 +24,3 @@ export class Execution {
     console.log(...msgs);
   }
 }
-
-export type TaskHandler = (execution: Execution) => Promise<any>;

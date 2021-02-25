@@ -1,6 +1,6 @@
-import { Execution } from "@djgrant/jetpack";
+import { TaskExecution } from "@djgrant/jetpack";
 
-export async function fetchData(self: Execution) {
+export async function fetchData(self: TaskExecution) {
   const { id, params, context, setContext, log } = self;
   log("Task machine example running!");
   log({ params, context });

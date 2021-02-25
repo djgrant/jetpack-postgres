@@ -1,9 +1,5 @@
 import { Pool } from "pg";
-import { MachineRow, TaskRow } from "../interfaces/db-schema";
-import { DbConnection, NewTask } from "../interfaces/db";
-
-export * from "../interfaces/db-schema";
-export * from "../interfaces/db";
+import { DbConnection, MachineRow, NewTaskRow, TaskRow } from "../interfaces";
 
 export class Db {
   pool: Pool;
@@ -22,7 +18,7 @@ export class Db {
     }
   }
 
-  async createTask(task: NewTask) {
+  async createTask(task: NewTaskRow) {
     const query = "select * from jetpack.create_task($1, $2, $3, $4)";
     await this.pool.query(query, [
       task.machineId,

@@ -1,9 +1,10 @@
 import { v4 as uuidV4 } from "uuid";
-import { Db, DbConnection, NewTask, TaskRow } from "./internal/db";
+import { Db } from "./internal/db";
+import { DbConnection, NewTaskRow, TaskRow } from "./interfaces";
 import { log } from "./internal/utils";
 import { POLL_INTERVAL } from "./internal/config";
 import { Machine } from "./machine";
-import { Execution } from "./interfaces/execution";
+import { Execution } from "./internal/execution";
 
 type Logger = (...msgs: any) => void;
 
@@ -46,7 +47,7 @@ export class Jetpack {
     this.db.end();
   }
 
-  async createTask(task: Omit<NewTask, "machineId"> & { machine: Machine }) {
+  async createTask(task: Omit<NewTaskRow, "machineId"> & { machine: Machine }) {
     await this.readyPromise;
     await this.db.createTask({
       machineId: task.machine.id,
@@ -94,25 +95,25 @@ export class Jetpack {
     if (!machine) {
       throw new Error(`Do not have a machine defined for task: ${task.id}`);
     }
-    await this.executeTaskHandler(task, machine);
+    await this.executeTask(task, machine);
   }
 
-  async executeTaskHandler(task: TaskRow, machine: Machine) {
+  async executeTask(task: TaskRow, machine: Machine) {
     const identifier = `"${machine.name}" (machine ID: ${machine.id}, task ID: ${task.id})`;
 
     this.log(`Processing ${identifier}`);
 
-    if (!machine.taskHandler) {
+    if (!machine.task) {
       this.log(
         `No task handler for machine ${machine.id}. Skipping execution.`
       );
       return;
     }
 
-    const execution = new Execution(task);
+    const execution = new Execution({ task, db: this.db });
 
     try {
-      await machine.taskHandler(execution);
+      await machine.task(execution);
       await this.db.dispatchAction("SUCCESS", task);
       this.log(`Successfully executed ${identifier}`);
     } catch (err) {

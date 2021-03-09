@@ -114,10 +114,10 @@ export class Jetpack {
 
     try {
       await machine.task(execution);
-      await this.db.dispatchAction("SUCCESS", task);
+      await this.db.dispatchAction("SUCCESS", task.id);
       this.log(`Successfully executed ${identifier}`);
     } catch (err) {
-      await this.db.dispatchAction("ERROR", task);
+      await this.db.dispatchAction("ERROR", task.id);
       this.log(err);
       this.log(`Failed to execute ${identifier}`);
     }

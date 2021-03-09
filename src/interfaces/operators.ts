@@ -1,14 +1,28 @@
-export type Operator =
-  | ValueOperator
-  | LogicalOperator
-  | ComparisonOperator
-  | ArithmeticOperators
+export type Primitive = string | number | boolean | null;
+
+export type Operator = EffectOperator | ExpressionOperator;
+
+export type ExpressionOperator =
+  | Primitive
+  | BinaryOperator
+  | ConditionOperator
   | GetterOperator
-  | EffectOperator;
+  | SumOperator
+  | ValueOperator;
 
-export type LogicalOperator = ConditionOperator;
+export type EffectOperator =
+  | string
+  | ChangeStateOperator
+  | CreateRootTaskOperator
+  | CreateSubTaskOperator
+  | DispatchActionToParentOperator
+  | DispatchActionToRootOperator
+  | DispatchActionToSiblingsOperator
+  | ErrorOperator
+  | IncrementAttemptsOperator
+  | NoOpOperator;
 
-export type ComparisonOperator =
+export type BinaryOperator =
   | LteOperator
   | LtOperator
   | GteOperator
@@ -18,160 +32,135 @@ export type ComparisonOperator =
   | AnyOperator
   | AllOperator;
 
-export type ArithmeticOperators = SumOperator;
-
 export type GetterOperator =
   | ParamsOperator
   | ContextOperator
   | AttemptsOperator
   | SubtreeStateCountOperator;
 
-export type EffectOperator =
-  | string
-  | NoOpOperator
-  | ErrorOperator
-  | IncrementAttemptsOperator
-  | ChangeStateOperator
-  | CreateSubTaskOperator
-  | CreateRootTaskOperator
-  | DispatchActionToRootOperator
-  | DispatchActionToParentOperator
-  | DispatchActionToSiblingsOperator;
-
-export type Primitive = string | number | boolean | null;
-
-export type EvaluableOperator =
-  | Primitive
-  | LogicalOperator
-  | ComparisonOperator
-  | GetterOperator
-  | ValueOperator
-  | ArithmeticOperators;
-
 export interface ValueOperator {
   type: "value";
   value: Primitive;
 }
 
-interface Base {
-  type: string;
-}
-
 // Logical
-export interface ConditionOperator extends Base {
+export interface ConditionOperator {
   type: "condition";
-  when: EvaluableOperator;
+  when: ExpressionOperator;
   then: Operator;
   else?: Operator;
 }
 
-// Comparison
-interface ComparisonBase extends Base {
-  left: EvaluableOperator;
-  right: EvaluableOperator;
+// Binary
+interface BinaryBaseOperator {
+  left: ExpressionOperator;
+  right: ExpressionOperator;
 }
 
-export interface LteOperator extends ComparisonBase {
+export interface LteOperator extends BinaryBaseOperator {
   type: "lte";
 }
 
-export interface LtOperator extends ComparisonBase {
+export interface LtOperator extends BinaryBaseOperator {
   type: "lt";
 }
 
-export interface GteOperator extends ComparisonBase {
+export interface GteOperator extends BinaryBaseOperator {
   type: "gte";
 }
 
-export interface GtOperator extends ComparisonBase {
+export interface GtOperator extends BinaryBaseOperator {
   type: "gt";
 }
 
-export interface EqOperator extends ComparisonBase {
+export interface EqOperator extends BinaryBaseOperator {
   type: "eq";
 }
 
-export interface NotEqOperator extends ComparisonBase {
+export interface NotEqOperator extends BinaryBaseOperator {
   type: "not_eq";
 }
 
-export interface AnyOperator extends Base {
+export interface AnyOperator {
   type: "any";
-  values: EvaluableOperator[];
+  values: ExpressionOperator[];
 }
 
-export interface AllOperator extends Base {
+export interface AllOperator {
   type: "all";
-  values: EvaluableOperator[];
+  values: ExpressionOperator[];
 }
 
 // Arithmetic
-export interface SumOperator extends Base {
+export interface SumOperator {
   type: "sum";
-  values: (number | EvaluableOperator)[];
+  values: (number | ExpressionOperator)[];
 }
 
 // Getter
-export interface ParamsOperator extends Base {
+export interface ParamsOperator {
   type: "params";
   path: string;
 }
 
-export interface ContextOperator extends Base {
+export interface ContextOperator {
   type: "context";
   path: string;
 }
 
-export interface AttemptsOperator extends Base {
+export interface AttemptsOperator {
   type: "attempts";
 }
 
-export interface SubtreeStateCountOperator extends Base {
+export interface SubtreeStateCountOperator {
   type: "subtree_state_count";
   state: string;
 }
 
 // Effects
-export interface NoOpOperator extends Base {
+export interface NoOpOperator {
   type: "no_op";
 }
 
-export interface ErrorOperator extends Base {
+export interface ErrorOperator {
   type: "error";
   message: string;
 }
 
-export interface ChangeStateOperator extends Base {
+export interface ChangeStateOperator {
   type: "change_state";
   new_state: string;
 }
 
-export interface IncrementAttemptsOperator extends Base {
+export interface IncrementAttemptsOperator {
   type: "increment_attempts";
 }
 
-export interface CreateSubTaskOperator extends Base {
+export interface CreateSubTaskOperator<Params = {}> {
   type: "create_sub_task";
   machine_id: string;
   parent_id: string;
+  params?: Params;
 }
 
-export interface CreateRootTaskOperator extends Base {
+export interface CreateRootTaskOperator<Params = {}, Context = {}> {
   type: "create_root_task";
   machine_id: string;
+  params?: Params;
+  context?: Context;
 }
 
-export interface DispatchActionToRootOperator extends Base {
+export interface DispatchActionToRootOperator {
   type: "dispatch_action_to_root";
   action: string;
 }
 
-export interface DispatchActionToParentOperator extends Base {
+export interface DispatchActionToParentOperator {
   type: "dispatch_action_to_parent";
   action: string;
 }
 
-export interface DispatchActionToSiblingsOperator extends Base {
+export interface DispatchActionToSiblingsOperator {
   type: "dispatch_action_to_siblings";
   action: string;
 }

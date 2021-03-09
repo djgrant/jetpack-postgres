@@ -33,9 +33,9 @@ export class Db {
     await this.pool.query(query, [params.context, params.taskId]);
   }
 
-  async dispatchAction(actionType: string, task: TaskRow) {
+  async dispatchAction(actionType: string, taskId: string) {
     const query = "select * from jetpack.dispatch_action($1, $2)";
-    await this.pool.query(query, [task.id, actionType]);
+    await this.pool.query(query, [taskId, actionType]);
   }
 
   async upsertMachines(machines: MachineRow[]) {

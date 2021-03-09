@@ -1,12 +1,7 @@
 import { EffectOperator, TaskRow } from "@djgrant/jetpack";
 import { createTask } from "../queries/create-task";
 
-export function runEffect(op: EffectOperator, task: TaskRow) {
-  if (typeof op === "string") {
-    task.state = op;
-    return task;
-  }
-
+export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
   if (op.type === "change_state") {
     task.state = op.new_state;
     return task;

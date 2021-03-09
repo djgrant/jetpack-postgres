@@ -31,7 +31,6 @@ export interface TaskRow {
   context: Record<string, any>;
   state: string;
   attempts: number;
-  locked: boolean;
 }
 
 export interface NewTaskRow {

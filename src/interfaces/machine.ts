@@ -1,4 +1,5 @@
-import { EffectOperator, LogicalOperator } from "./operators";
+import { Operator } from "./operators";
+
 export interface Transitions {
   [state: string]: {
     onEvent?: TransitionMap;
@@ -6,7 +7,5 @@ export interface Transitions {
 }
 
 export interface TransitionMap {
-  [action: string]: Operation | Operation[];
+  [action: string]: Operator | Operator[];
 }
-
-export type Operation = EffectOperator | LogicalOperator;

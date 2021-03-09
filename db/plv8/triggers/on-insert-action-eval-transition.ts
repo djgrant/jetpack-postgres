@@ -3,7 +3,7 @@ import {
   MachineRow,
   ActionRow,
   TaskRow,
-  Operation,
+  Operator,
 } from "@djgrant/jetpack";
 import { evaluateOperation, runEffect } from "../interpreter";
 import { updateTask } from "../queries/update-task";
@@ -39,7 +39,7 @@ export default function beforeInsertAction() {
   const operation = machine.transitions[task.state]?.onEvent?.[type];
   if (!operation) return NEW;
 
-  const operations = ([] as Operation[]).concat(operation);
+  const operations = ([] as Operator[]).concat(operation);
   const effectOperators = [];
 
   for (const operation of operations) {

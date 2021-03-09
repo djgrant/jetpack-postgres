@@ -8,7 +8,7 @@ import {
   CreateSubTaskOperator,
   EqOperator,
   ErrorOperator,
-  EvaluableOperator,
+  ExpressionOperator,
   GteOperator,
   IncrementAttemptsOperator,
   LteOperator,
@@ -19,15 +19,6 @@ import {
   SumOperator,
   ValueOperator,
 } from "./interfaces/operators";
-
-type Late<T> = T | (() => T);
-
-function late(val: Late<any>) {
-  if (typeof val === "function") {
-    return val();
-  }
-  return val;
-}
 
 export const noOp = (): NoOpOperator => ({
   type: "no_op",
@@ -49,18 +40,18 @@ export const changeState = (newState: string): ChangeStateOperator => ({
 });
 
 export const createSubTask = (opts: {
-  machine: Late<{ id: string }>;
+  machine: { id: string };
 }): CreateSubTaskOperator => ({
   type: "create_sub_task",
-  machine_id: late(opts.machine).id,
+  machine_id: opts.machine.id,
   parent_id: "$self",
 });
 
 export const createRootTask = (opts: {
-  machine: Late<{ id: string }>;
+  machine: { id: string };
 }): CreateRootTaskOperator => ({
   type: "create_root_task",
-  machine_id: late(opts.machine).id,
+  machine_id: opts.machine.id,
 });
 
 export const self = () => ({
@@ -83,8 +74,8 @@ export const incrementAttempts = (): IncrementAttemptsOperator => ({
 });
 
 export const lte = (
-  left: EvaluableOperator,
-  right: EvaluableOperator
+  left: ExpressionOperator,
+  right: ExpressionOperator
 ): LteOperator => ({
   type: "lte",
   left,
@@ -92,8 +83,8 @@ export const lte = (
 });
 
 export const gte = (
-  left: EvaluableOperator,
-  right: EvaluableOperator
+  left: ExpressionOperator,
+  right: ExpressionOperator
 ): GteOperator => ({
   type: "gte",
   left,
@@ -101,8 +92,8 @@ export const gte = (
 });
 
 export const lt = (
-  left: EvaluableOperator,
-  right: EvaluableOperator
+  left: ExpressionOperator,
+  right: ExpressionOperator
 ): LtOperator => ({
   type: "lt",
   left,
@@ -110,25 +101,25 @@ export const lt = (
 });
 
 export const eq = (
-  left: EvaluableOperator,
-  right: EvaluableOperator
+  left: ExpressionOperator,
+  right: ExpressionOperator
 ): EqOperator => ({
   type: "eq",
   left,
   right,
 });
 
-export const any = (...values: EvaluableOperator[]): AnyOperator => ({
+export const any = (...values: ExpressionOperator[]): AnyOperator => ({
   type: "any",
   values,
 });
 
-export const all = (...values: EvaluableOperator[]): AllOperator => ({
+export const all = (...values: ExpressionOperator[]): AllOperator => ({
   type: "all",
   values,
 });
 
-export const sum = (...values: EvaluableOperator[]): SumOperator => ({
+export const sum = (...values: ExpressionOperator[]): SumOperator => ({
   type: "sum",
   values,
 });

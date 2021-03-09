@@ -103,7 +103,7 @@ describe("machine", () => {
       expectedActions: [
         {
           type: "ENTER",
-          old_state: "initial",
+          previous_state: "initial",
           new_state: "pass",
           operations: [
             {

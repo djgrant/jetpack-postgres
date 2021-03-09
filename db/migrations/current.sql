@@ -117,22 +117,34 @@ create function jetpack.eval_transition() returns trigger as $$
     }
     function evaluateOperator(operator, task) {
         var cache = {};
+        function evalOpAsValue(op) {
+            var valueOp = evalOp(op);
+            if (isPrimitive(valueOp)) {
+                return value(valueOp);
+            }
+            if (isValueOperator(valueOp)) {
+                return valueOp;
+            }
+            throw new Error("Operator must ulimately return a value type");
+        }
         function evalOp(op) {
             var _a;
-            // Syntactic sugar
-            if (typeof op === "string") {
-                return changeState(op);
+            if (isPrimitive(op)) {
+                return op;
             }
             // Logical
             if (op.type === "condition") {
-                var when = evalToValueOperator(op.when);
-                var isPass = Boolean(when.value);
-                return isPass ? evalOp(op.then) : op["else"] ? evalOp(op["else"]) : noOp();
+                var when = evalOpAsValue(op.when);
+                var passed = Boolean(when.value);
+                if (!passed) {
+                    return op["else"] ? evalOp(op["else"]) : noOp();
+                }
+                return evalOp(op.then);
             }
             // Comparison
             if ("left" in op && "right" in op) {
-                var left = evalToValueOperator(op.left);
-                var right = evalToValueOperator(op.right);
+                var left = evalOpAsValue(op.left);
+                var right = evalOpAsValue(op.right);
                 if (op.type === "eq") {
                     return value(left.value === right.value);
                 }
@@ -154,16 +166,16 @@ create function jetpack.eval_transition() returns trigger as $$
                 }
             }
             if (op.type === "any") {
-                var valueOperators = op.values.map(evalToValueOperator);
+                var valueOperators = op.values.map(evalOpAsValue);
                 return value(valueOperators.some(function (valueOperator) { return Boolean(valueOperator.value); }));
             }
             if (op.type === "all") {
-                var valueOperators = op.values.map(evalToValueOperator);
+                var valueOperators = op.values.map(evalOpAsValue);
                 return value(valueOperators.every(function (valueOperator) { return Boolean(valueOperator.value); }));
             }
             // Arithmetic
             if (op.type === "sum") {
-                var numberOperators = op.values.map(evalToValueOperator);
+                var numberOperators = op.values.map(evalOpAsValue);
                 var total = 0;
                 for (var _i = 0, numberOperators_1 = numberOperators; _i < numberOperators_1.length; _i++) {
                     var numberOperator = numberOperators_1[_i];
@@ -198,24 +210,39 @@ create function jetpack.eval_transition() returns trigger as $$
             }
             return op;
         }
-        function evalToValueOperator(input) {
-            if (input !== null && typeof input === "object" && "type" in input) {
-                var value$1 = evalOp(input);
-                if (!isValueOperator(value$1)) {
-                    throw new Error("Operator must ulimately return a value type");
-                }
-                return value$1;
+        var resultingOperator = evalOp(operator);
+        if (isEffectOperator(resultingOperator)) {
+            if (typeof resultingOperator === "string") {
+                return changeState(resultingOperator);
             }
-            return value(input);
+            return resultingOperator;
         }
-        return evalOp(operator);
+        return noOp();
+    }
+    function isPrimitive(op) {
+        return typeof op !== "object" || op === null;
     }
     function isValueOperator(op) {
-        if (typeof op !== "object" || !("value" in op)) {
-            return false;
-        }
-        return true;
+        return typeof op === "object" && op !== null && op.type === "value";
     }
+    function isEffectOperator(op) {
+        if (typeof op === "string")
+            return true;
+        if (typeof op !== "object" || op === null)
+            return false;
+        return effectTypes.includes(op.type);
+    }
+    var effectTypes = [
+        "change_state",
+        "create_root_task",
+        "create_sub_task",
+        "dispatch_action_to_parent",
+        "dispatch_action_to_root",
+        "dispatch_action_to_siblings",
+        "error",
+        "increment_attempts",
+        "no_op",
+    ];
 
     function createTask(task) {
         var createTaskQuery = plv8.prepare("select * from jetpack.create_task($1, $2, $3, $4)", ["uuid", "bigint", "jsonb", "jsonb"]);
@@ -229,10 +256,6 @@ create function jetpack.eval_transition() returns trigger as $$
     }
 
     function runEffect(op, task) {
-        if (typeof op === "string") {
-            task.state = op;
-            return task;
-        }
         if (op.type === "change_state") {
             task.state = op.new_state;
             return task;

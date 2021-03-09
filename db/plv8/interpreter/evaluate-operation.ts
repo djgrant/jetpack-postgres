@@ -1,6 +1,6 @@
 import {
   ops,
-  EvaluableOperator,
+  Primitive,
   Operator,
   ValueOperator,
   EffectOperator,
@@ -15,7 +15,7 @@ interface Cache {
 export function evaluateOperation(
   operation: Operator,
   task: TaskRow
-): EffectOperator {
+): Exclude<EffectOperator, string> {
   try {
     return evaluateOperator(operation, task);
   } catch (err) {
@@ -26,26 +26,39 @@ export function evaluateOperation(
 export function evaluateOperator(
   operator: Operator,
   task: TaskRow
-): EffectOperator {
+): Exclude<EffectOperator, string> {
   const cache: Cache = {};
 
+  function evalOpAsValue(op: Operator): ValueOperator {
+    const valueOp = evalOp(op);
+    if (isPrimitive(valueOp)) {
+      return ops.value(valueOp);
+    }
+    if (isValueOperator(valueOp)) {
+      return valueOp;
+    }
+    throw new Error("Operator must ulimately return a value type");
+  }
+
   function evalOp(op: Operator): Operator {
-    // Syntactic sugar
-    if (typeof op === "string") {
-      return ops.changeState(op);
+    if (isPrimitive(op)) {
+      return op;
     }
 
     // Logical
     if (op.type === "condition") {
-      const when = evalToValueOperator(op.when);
-      const isPass = Boolean(when.value);
-      return isPass ? evalOp(op.then) : op.else ? evalOp(op.else) : ops.noOp();
+      const when = evalOpAsValue(op.when);
+      const passed = Boolean(when.value);
+      if (!passed) {
+        return op.else ? evalOp(op.else) : ops.noOp();
+      }
+      return evalOp(op.then);
     }
 
     // Comparison
     if ("left" in op && "right" in op) {
-      const left = evalToValueOperator(op.left);
-      const right = evalToValueOperator(op.right);
+      const left = evalOpAsValue(op.left);
+      const right = evalOpAsValue(op.right);
 
       if (op.type === "eq") {
         return ops.value(left.value === right.value);
@@ -70,14 +83,14 @@ export function evaluateOperator(
     }
 
     if (op.type === "any") {
-      const valueOperators = op.values.map(evalToValueOperator);
+      const valueOperators = op.values.map(evalOpAsValue);
       return ops.value(
         valueOperators.some(valueOperator => Boolean(valueOperator.value))
       );
     }
 
     if (op.type === "all") {
-      const valueOperators = op.values.map(evalToValueOperator);
+      const valueOperators = op.values.map(evalOpAsValue);
       return ops.value(
         valueOperators.every(valueOperator => Boolean(valueOperator.value))
       );
@@ -85,7 +98,7 @@ export function evaluateOperator(
 
     // Arithmetic
     if (op.type === "sum") {
-      const numberOperators = op.values.map(evalToValueOperator);
+      const numberOperators = op.values.map(evalOpAsValue);
 
       let total = 0;
       for (const numberOperator of numberOperators) {
@@ -129,23 +142,42 @@ export function evaluateOperator(
     return op;
   }
 
-  function evalToValueOperator(input: EvaluableOperator): ValueOperator {
-    if (input !== null && typeof input === "object" && "type" in input) {
-      const value = evalOp(input);
-      if (!isValueOperator(value)) {
-        throw new Error("Operator must ulimately return a value type");
-      }
-      return value;
+  const resultingOperator = evalOp(operator);
+
+  if (isEffectOperator(resultingOperator)) {
+    if (typeof resultingOperator === "string") {
+      return ops.changeState(resultingOperator);
     }
-    return ops.value(input);
+    return resultingOperator;
   }
 
-  return evalOp(operator) as EffectOperator;
+  return ops.noOp();
+}
+
+function isPrimitive(op: Operator): op is Primitive {
+  return typeof op !== "object" || op === null;
 }
 
 function isValueOperator(op: Operator): op is ValueOperator {
-  if (typeof op !== "object" || !("value" in op)) {
-    return false;
-  }
-  return true;
+  return typeof op === "object" && op !== null && op.type === "value";
 }
+
+function isEffectOperator(op: Operator): op is EffectOperator {
+  if (typeof op === "string") return true;
+  if (typeof op !== "object" || op === null) return false;
+  return effectTypes.includes(op.type as EffectType);
+}
+
+type EffectType = Exclude<EffectOperator, string>["type"];
+
+const effectTypes: EffectType[] = [
+  "change_state",
+  "create_root_task",
+  "create_sub_task",
+  "dispatch_action_to_parent",
+  "dispatch_action_to_root",
+  "dispatch_action_to_siblings",
+  "error",
+  "increment_attempts",
+  "no_op",
+];

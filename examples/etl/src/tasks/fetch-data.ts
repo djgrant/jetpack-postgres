@@ -7,7 +7,4 @@ export async function fetchData(self: TaskExecution) {
   const coinFlip = Math.random() > 0.5;
   const newContext = await setContext({ [id]: { coinFlip } });
   log({ newContext });
-  if (coinFlip) {
-    throw new Error("Task machine failed!");
-  }
 }

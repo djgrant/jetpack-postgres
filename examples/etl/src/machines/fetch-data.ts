@@ -8,7 +8,10 @@ export const fetchDataMachine = createTaskMachine({
   states: {
     done: {
       onEvent: {
-        ENTER: ops.createSubTask({ machine: ops.self() }),
+        ENTER: ops.condition({
+          when: ops.lte(ops.attempts(), 10),
+          then: ops.createSubTask({ machine: ops.self() }),
+        }),
       },
     },
   },

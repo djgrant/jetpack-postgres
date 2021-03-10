@@ -91,20 +91,38 @@ create function jetpack.eval_transition() returns trigger as $$
   var module = (function () {
     'use strict';
 
-    const noOp = () => ({
+    // Getters
+    const value = (value) => ({
+        type: "value",
+        value,
+    });
+    // Effects
+    const noOp = (operation) => ({
         type: "no_op",
+        operation,
     });
     const error = (message) => ({
         type: "error",
         message,
     });
-    const value = (value) => ({
-        type: "value",
-        value,
-    });
     const changeState = (newState) => ({
         type: "change_state",
         new_state: newState,
+    });
+    const dispatchActionToRoot = (action, payload) => ({
+        type: "dispatch_action_to_root",
+        action,
+        payload,
+    });
+    const dispatchActionToSiblings = (action, payload) => ({
+        type: "dispatch_action_to_siblings",
+        action,
+        payload,
+    });
+    const dispatchActionToParent = (action, payload) => ({
+        type: "dispatch_action_to_parent",
+        action,
+        payload,
     });
 
     function evaluateOperation(operation, task) {
@@ -128,7 +146,7 @@ create function jetpack.eval_transition() returns trigger as $$
             throw new Error("Operator must ulimately return a value type");
         }
         function evalOp(op) {
-            var _a;
+            var _a, _b;
             if (isPrimitive(op)) {
                 return op;
             }
@@ -148,6 +166,9 @@ create function jetpack.eval_transition() returns trigger as $$
                 if (op.type === "eq") {
                     return value(left.value === right.value);
                 }
+                if (op.type === "not_eq") {
+                    return value(left.value !== right.value);
+                }
                 // Numeric
                 if (typeof left.value !== "number" || typeof right.value !== "number") {
                     return value(false);
@@ -165,6 +186,7 @@ create function jetpack.eval_transition() returns trigger as $$
                     return value(left.value > right.value);
                 }
             }
+            // Logical
             if (op.type === "any") {
                 var valueOperators = op.values.map(evalOpAsValue);
                 return value(valueOperators.some(function (valueOperator) { return Boolean(valueOperator.value); }));
@@ -188,10 +210,10 @@ create function jetpack.eval_transition() returns trigger as $$
             }
             // Getters
             if (op.type === "params") {
-                return value(task.params[op.path]);
+                return value(op.path ? task.params[op.path] : task.params);
             }
             if (op.type === "context") {
-                return value(task.params[op.path]);
+                return value(op.path ? task.context[op.path] : task.context);
             }
             if (op.type === "attempts") {
                 return value(task.attempts);
@@ -201,23 +223,39 @@ create function jetpack.eval_transition() returns trigger as $$
                     var subtreeQuery = plv8.prepare("select * from jetpack.get_subtree_states_agg($1)", ["bigint"]);
                     var subtreeStates = subtreeQuery.execute([task.id]);
                     cache.subtree = {};
-                    for (var _b = 0, subtreeStates_1 = subtreeStates; _b < subtreeStates_1.length; _b++) {
-                        var row = subtreeStates_1[_b];
+                    for (var _c = 0, subtreeStates_1 = subtreeStates; _c < subtreeStates_1.length; _c++) {
+                        var row = subtreeStates_1[_c];
                         cache.subtree[row.state] = row.descendants;
                     }
                 }
                 return value(((_a = cache.subtree) === null || _a === void 0 ? void 0 : _a[op.state]) || 0);
             }
+            // Actions
+            if ("action" in op) {
+                var action = (_b = evalOpAsValue(op.action).value) === null || _b === void 0 ? void 0 : _b.toString();
+                var payload = op.payload && evalOpAsValue(op.payload).value;
+                if (!action)
+                    return null;
+                if (op.type === "dispatch_action_to_parent") {
+                    return dispatchActionToParent(action, payload);
+                }
+                if (op.type === "dispatch_action_to_root") {
+                    return dispatchActionToRoot(action, payload);
+                }
+                if (op.type === "dispatch_action_to_siblings") {
+                    return dispatchActionToSiblings(action, payload);
+                }
+            }
             return op;
         }
-        var resultingOperator = evalOp(operator);
-        if (isEffectOperator(resultingOperator)) {
-            if (typeof resultingOperator === "string") {
-                return changeState(resultingOperator);
+        var evaluatedOperation = evalOp(operator);
+        if (isEffectOperator(evaluatedOperation)) {
+            if (typeof evaluatedOperation === "string") {
+                return changeState(evaluatedOperation);
             }
-            return resultingOperator;
+            return evaluatedOperation;
         }
-        return noOp();
+        return noOp(evaluatedOperation);
     }
     function isPrimitive(op) {
         return typeof op !== "object" || op === null;

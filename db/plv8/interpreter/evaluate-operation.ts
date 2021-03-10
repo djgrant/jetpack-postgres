@@ -23,7 +23,7 @@ export function evaluateOperation(
   }
 }
 
-export function evaluateOperator(
+function evaluateOperator(
   operator: Operator,
   task: TaskRow
 ): Exclude<EffectOperator, string> {
@@ -64,6 +64,10 @@ export function evaluateOperator(
         return ops.value(left.value === right.value);
       }
 
+      if (op.type === "not_eq") {
+        return ops.value(left.value !== right.value);
+      }
+
       // Numeric
       if (typeof left.value !== "number" || typeof right.value !== "number") {
         return ops.value(false);
@@ -82,6 +86,7 @@ export function evaluateOperator(
       }
     }
 
+    // Logical
     if (op.type === "any") {
       const valueOperators = op.values.map(evalOpAsValue);
       return ops.value(
@@ -113,11 +118,11 @@ export function evaluateOperator(
 
     // Getters
     if (op.type === "params") {
-      return ops.value(task.params[op.path]);
+      return ops.value(op.path ? task.params[op.path] : task.params);
     }
 
     if (op.type === "context") {
-      return ops.value(task.params[op.path]);
+      return ops.value(op.path ? task.context[op.path] : task.context);
     }
 
     if (op.type === "attempts") {
@@ -139,19 +144,37 @@ export function evaluateOperator(
       return ops.value(cache.subtree?.[op.state] || 0);
     }
 
+    // Actions
+    if ("action" in op) {
+      const action = evalOpAsValue(op.action).value?.toString();
+      const payload = op.payload && evalOpAsValue(op.payload).value;
+
+      if (!action) return null;
+
+      if (op.type === "dispatch_action_to_parent") {
+        return ops.dispatchActionToParent(action, payload);
+      }
+      if (op.type === "dispatch_action_to_root") {
+        return ops.dispatchActionToRoot(action, payload);
+      }
+      if (op.type === "dispatch_action_to_siblings") {
+        return ops.dispatchActionToSiblings(action, payload);
+      }
+    }
+
     return op;
   }
 
-  const resultingOperator = evalOp(operator);
+  const evaluatedOperation = evalOp(operator);
 
-  if (isEffectOperator(resultingOperator)) {
-    if (typeof resultingOperator === "string") {
-      return ops.changeState(resultingOperator);
+  if (isEffectOperator(evaluatedOperation)) {
+    if (typeof evaluatedOperation === "string") {
+      return ops.changeState(evaluatedOperation);
     }
-    return resultingOperator;
+    return evaluatedOperation;
   }
 
-  return ops.noOp();
+  return ops.noOp(evaluatedOperation);
 }
 
 function isPrimitive(op: Operator): op is Primitive {

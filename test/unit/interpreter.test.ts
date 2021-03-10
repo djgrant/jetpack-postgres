@@ -1,11 +1,13 @@
 import { evaluateOperation } from "../../db/plv8/interpreter";
 import { ops, TaskRow } from "../../src";
 
-Object.defineProperty(global, "plv8", {
-  value: {
-    prepare: () => {},
-  },
-});
+declare const global: { plv8: any };
+
+global.plv8 = {
+  prepare: () => ({
+    execute: () => [{ state: "pending", descendants: 10 }],
+  }),
+};
 
 const task: TaskRow = {
   id: "1",
@@ -21,12 +23,150 @@ const task: TaskRow = {
 const PASS = ops.changeState("pass");
 const FAIL = ops.changeState("fail");
 const NOOP = ops.noOp();
+const noOpValue = v => ops.noOp(ops.value(v));
 
-describe("syntactic sugar", () => {
+describe("syntatic sugar", () => {
   it("returns a string as change_state operator", () => {
     const operation = "new_state";
     const result = evaluateOperation(operation, task);
     expect(result).toEqual(ops.changeState("new_state"));
+  });
+});
+
+describe("illegal operations", () => {
+  it("returns an error when an effect is passed instead of a value", () => {
+    const testCases = [
+      ops.dispatchActionToRoot(
+        "TEST",
+        ops.createSubTask({ machine: ops.self() })
+      ),
+      ops.eq(
+        ops.value(1),
+        ops.condition({
+          when: true,
+          then: ops.createSubTask({ machine: { id: "$self" } }),
+        })
+      ),
+    ];
+
+    testCases.forEach(operation => {
+      const result = evaluateOperation(operation, task);
+      expect(result).toEqual(
+        ops.error("Error: Operator must ulimately return a value type")
+      );
+    });
+  });
+
+  it("returns a no op effect if the resulting operator is not an effect", () => {
+    const operations = [
+      null,
+      1,
+      ops.value("pass"),
+      ops.value(null),
+      ops.eq(1, 2),
+      ops.condition({ when: true, then: 1 }),
+    ];
+    operations.forEach(operation => {
+      const result = evaluateOperation(operation, task);
+      expect(result).toMatchObject({ type: "no_op" });
+    });
+  });
+});
+
+describe("effects", () => {
+  it("returns valid effects", () => {
+    [
+      ops.changeState("new_state"),
+      ops.createRootTask({ machine: ops.self() }),
+      ops.createSubTask({ machine: ops.self() }),
+      ops.dispatchActionToParent("TEST"),
+      ops.dispatchActionToRoot("TEST"),
+      ops.dispatchActionToSiblings("TEST"),
+      ops.error("Boo"),
+      ops.incrementAttempts(),
+      ops.noOp(),
+    ].forEach(effect => {
+      const result = evaluateOperation(effect, task);
+      expect(result).toEqual(effect);
+    });
+  });
+
+  it("handles actions with no payload", () => {
+    const operation = ops.dispatchActionToParent("TEST");
+    const result = evaluateOperation(operation, task);
+    expect(result).toEqual(ops.dispatchActionToParent("TEST"));
+  });
+
+  it("handles actions with a payload", () => {
+    const operation = ops.dispatchActionToParent("TEST", 1);
+    const result = evaluateOperation(operation, task);
+    expect(result).toEqual(ops.dispatchActionToParent("TEST", 1));
+  });
+
+  it("unpacks expressions inside actions", () => {
+    const testCases = [
+      [
+        ops.dispatchActionToParent("TEST", ops.value(1)),
+        ops.dispatchActionToParent("TEST", 1),
+      ],
+      [
+        ops.dispatchActionToRoot("TEST", ops.value(null)),
+        ops.dispatchActionToRoot("TEST", null),
+      ],
+      [
+        ops.dispatchActionToSiblings("TEST", ops.eq(1, 2)),
+        ops.dispatchActionToSiblings("TEST", false),
+      ],
+    ];
+
+    testCases.forEach(([operation, expected]) => {
+      const result = evaluateOperation(operation, task);
+      expect(result).toEqual(expected);
+    });
+  });
+});
+
+describe("getters", () => {
+  test("attempts", () => {
+    const operation = ops.attempts();
+    const result = evaluateOperation(operation, task);
+    expect(result).toEqual(noOpValue(1));
+  });
+
+  test("params", () => {
+    const operation = ops.params();
+    const result = evaluateOperation(operation, {
+      ...task,
+      params: { a: { b: 1 } },
+    });
+    expect(result).toEqual(noOpValue({ a: { b: 1 } }));
+  });
+
+  test("params at path", () => {
+    const operation = ops.params("a");
+    const result = evaluateOperation(operation, {
+      ...task,
+      params: { a: { b: 1 } },
+    });
+    expect(result).toEqual(noOpValue({ b: 1 }));
+  });
+
+  test("context", () => {
+    const operation = ops.context();
+    const result = evaluateOperation(operation, {
+      ...task,
+      context: { a: { b: 1 } },
+    });
+    expect(result).toEqual(noOpValue({ a: { b: 1 } }));
+  });
+
+  test("context at path", () => {
+    const operation = ops.context("a");
+    const result = evaluateOperation(operation, {
+      ...task,
+      context: { a: { b: 1 } },
+    });
+    expect(result).toEqual(noOpValue({ b: 1 }));
   });
 });
 
@@ -61,64 +201,84 @@ describe("conditions", () => {
   });
 });
 
-describe("binary operators", () => {
-  it("eq", () => {
-    const operation = ops.condition({
-      when: ops.eq(ops.attempts(), 10),
-      then: "pass",
-      else: "fail",
+describe("logical operators", () => {
+  test("all", () => {
+    const testCases = [
+      { args: [ops.eq(2, 2)], expected: true },
+      { args: [ops.eq(1, 2)], expected: false },
+      { args: [ops.value(false)], expected: false },
+      { args: [false], expected: false },
+      { args: [true], expected: true },
+      { args: [true, true], expected: true },
+      { args: [true, false], expected: false },
+      { args: [true, true, true], expected: true },
+      { args: [true, false, true], expected: false },
+      { args: [false, false, false], expected: false },
+    ];
+    testCases.forEach(({ args, expected }) => {
+      const operation = ops.all(...args);
+      const result = evaluateOperation(operation, task);
+      expect(result).toEqual(noOpValue(expected));
     });
-
-    const passResults = [
-      evaluateOperation(operation, { ...task, attempts: 10 }),
-    ];
-
-    const failResults = [
-      evaluateOperation(operation, { ...task, attempts: -10 }),
-      evaluateOperation(operation, { ...task, attempts: 9 }),
-      evaluateOperation(operation, { ...task, attempts: 11 }),
-    ];
-
-    passResults.forEach(result => expect(result).toEqual(PASS));
-    failResults.forEach(result => expect(result).toEqual(FAIL));
   });
 
-  it("lte", () => {
-    const operation = ops.condition({
-      when: ops.lte(ops.attempts(), 10),
-      then: "pass",
-      else: "fail",
+  test("any", () => {
+    const testCases = [
+      { args: [ops.eq(2, 2)], expected: true },
+      { args: [ops.eq(1, 2)], expected: false },
+      { args: [ops.value(false)], expected: false },
+      { args: [false], expected: false },
+      { args: [true], expected: true },
+      { args: [true, true], expected: true },
+      { args: [true, false], expected: true },
+      { args: [true, true, true], expected: true },
+      { args: [true, false, true], expected: true },
+      { args: [false, false, false], expected: false },
+    ];
+    testCases.forEach(({ args, expected }) => {
+      const operation = ops.any(...args);
+      const result = evaluateOperation(operation, task);
+      expect(result).toEqual(noOpValue(expected));
     });
-
-    const passResults = [
-      evaluateOperation(operation, { ...task, attempts: -10 }),
-      evaluateOperation(operation, { ...task, attempts: 9 }),
-      evaluateOperation(operation, { ...task, attempts: 10 }),
-    ];
-
-    const failResults = [
-      evaluateOperation(operation, { ...task, attempts: 11 }),
-      evaluateOperation(operation, { ...task, attempts: 111 }),
-    ];
-
-    passResults.forEach(result => expect(result).toEqual(PASS));
-    failResults.forEach(result => expect(result).toEqual(FAIL));
   });
 });
 
-describe("no ops", () => {
-  it("returns a no op effect if the resulting operator is not an effect", () => {
-    const operations = [
-      null,
-      1,
-      ops.value("pass"),
-      ops.value(null),
-      ops.eq(1, 2),
-      ops.condition({ when: true, then: 1 }),
-    ];
-    operations.forEach(operation => {
-      const result = evaluateOperation(operation, task);
-      expect(result).toEqual(NOOP);
+describe("comparison operators", () => {
+  const testCases = [
+    { op: "eq", pass: [10], fail: [-10, 9, 11] },
+    { op: "notEq", pass: [-10, 9, 11], fail: [10] },
+    { op: "lte", pass: [-10, 9, 10], fail: [11, 111] },
+    { op: "lt", pass: [-10, 9], fail: [10, 11, 111] },
+    { op: "gt", pass: [11, 111], fail: [-10, 9, 10] },
+    { op: "gte", pass: [10, 11, 111], fail: [9, -9, 0] },
+  ];
+
+  testCases.forEach(testCase => {
+    test(testCase.op, () => {
+      const toResult = num =>
+        evaluateOperation(ops[testCase.op](num, 10), task);
+
+      const passResults = testCase.pass.map(toResult);
+      const failResults = testCase.fail.map(toResult);
+
+      passResults.forEach(result => expect(result).toEqual(noOpValue(true)));
+      failResults.forEach(result => expect(result).toEqual(noOpValue(false)));
     });
+  });
+});
+
+describe("arithmetic operators", () => {
+  test("sum", () => {
+    const operation = ops.sum(1, 2, 3);
+    const result = evaluateOperation(operation, task);
+    expect(result).toEqual(noOpValue(6));
+  });
+});
+
+describe("subtree operators", () => {
+  test("count by state", () => {
+    const operation = ops.subtree.count("pending");
+    const result = evaluateOperation(operation, task);
+    expect(result).toEqual(noOpValue(10));
   });
 });

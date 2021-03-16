@@ -17,7 +17,7 @@ export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
       machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
       parent_id: op.parent_id === "$self" ? task.id : op.parent_id,
     });
-    return;
+    return null;
   }
 
   if (op.type === "create_root_task") {
@@ -25,6 +25,8 @@ export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
       machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
       parent_id: null,
     });
-    return;
+    return null;
   }
+
+  return null;
 }

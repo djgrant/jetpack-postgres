@@ -23,7 +23,7 @@ const task: TaskRow = {
 const PASS = ops.changeState("pass");
 const FAIL = ops.changeState("fail");
 const NOOP = ops.noOp();
-const noOpValue = v => ops.noOp(ops.value(v));
+const noOpValue = (v: any) => ops.noOp(ops.value(v));
 
 describe("syntatic sugar", () => {
   it("returns a string as change_state operator", () => {
@@ -110,8 +110,8 @@ describe("effects", () => {
         ops.dispatchActionToParent("TEST", 1),
       ],
       [
-        ops.dispatchActionToRoot("TEST", ops.value(null)),
-        ops.dispatchActionToRoot("TEST", null),
+        ops.dispatchActionToRoot("TEST", ops.value("hello")),
+        ops.dispatchActionToRoot("TEST", "hello"),
       ],
       [
         ops.dispatchActionToSiblings("TEST", ops.eq(1, 2)),
@@ -255,8 +255,12 @@ describe("comparison operators", () => {
 
   testCases.forEach(testCase => {
     test(testCase.op, () => {
-      const toResult = num =>
-        evaluateOperation(ops[testCase.op](num, 10), task);
+      const toResult = (num: number) => {
+        const op = ops[testCase.op as keyof typeof ops] as (
+          ...args: any[]
+        ) => any;
+        return evaluateOperation(op(num, 10), task);
+      };
 
       const passResults = testCase.pass.map(toResult);
       const failResults = testCase.fail.map(toResult);

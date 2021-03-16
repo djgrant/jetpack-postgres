@@ -4,6 +4,10 @@
     "rootDir": "./",
     "strict": true,
     "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "paths": {
       "@djgrant/jetpack": ["../../src"]
     }

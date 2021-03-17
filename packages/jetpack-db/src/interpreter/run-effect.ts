@@ -15,7 +15,7 @@ export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
   if (op.type === "create_sub_task") {
     createTask({
       machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
-      parent_id: op.parent_id === "$self" ? task.id : op.parent_id,
+      parent_id: task.id,
     });
     return null;
   }

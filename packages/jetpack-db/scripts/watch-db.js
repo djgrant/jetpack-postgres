@@ -7,15 +7,15 @@ const sqlWithTsImport = require("./ts-sql");
 const rootDir = path.join(__dirname, "../");
 
 const paths = {
-  db: path.join(rootDir, "./db"),
-  functions: path.join(rootDir, "./db/functions"),
-  migrations: path.join(rootDir, "./db/migrations"),
-  plv8: path.join(rootDir, "./db/plv8"),
-  triggers: path.join(rootDir, "./db/triggers"),
+  root: rootDir,
+  sql: path.join(rootDir, "./sql"),
+  functions: path.join(rootDir, "./sql/functions"),
+  migrations: path.join(rootDir, "./sql/migrations"),
+  triggers: path.join(rootDir, "./sql/triggers"),
 };
 
 const watcherOptions = {
-  cwd: paths.db,
+  cwd: paths.root,
   persistent: true,
 };
 
@@ -23,16 +23,14 @@ const pool = new Pool({
   connectionString: "postgres://danielgrant@localhost:5432/jetpack",
 });
 
-chokidar
-  .watch(["migrations", "dev"], watcherOptions)
-  .on("change", runMigration);
+chokidar.watch(["sql/migrations"], watcherOptions).on("change", runMigration);
 
 chokidar
-  .watch(["functions", "plv8", "triggers"], watcherOptions)
+  .watch(["sql/functions", "sql/triggers", "src"], watcherOptions)
   .on("change", updateCurrentMigration);
 
 async function runMigration(changedFile) {
-  const filePath = path.join(paths.db, changedFile);
+  const filePath = path.join(paths.root, changedFile);
   const sql = await fs.readFile(filePath, { encoding: "utf-8" });
   try {
     await pool.query(sql);

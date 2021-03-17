@@ -1,5 +1,10 @@
+import {
+  Jetpack,
+  createTaskMachine,
+  ops,
+  SubtreeStatesRow,
+} from "@djgrant/jetpack";
 import { migrate, connectionString } from "../setup/arrange";
-import { Jetpack, createTaskMachine, ops, SubtreeStatesRow } from "../../src";
 import { Pool } from "pg";
 
 const pool = new Pool({ connectionString });

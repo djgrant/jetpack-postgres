@@ -1,10 +1,11 @@
 {
   "name": "jetpack-verbose-example",
+  "version": "0.1.0",
   "scripts": {
     "start": "ts-node src/worker.ts"
   },
   "dependencies": {
-    "@djgrant/jetpack": "next"
+    "@djgrant/jetpack": "0.1.0"
   },
   "devDependencies": {
     "ts-node": "^9.1.1",

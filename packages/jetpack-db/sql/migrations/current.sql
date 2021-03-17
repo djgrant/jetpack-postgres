@@ -3,7 +3,7 @@
 */
 
 /*
-  functions/create-task.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/functions/create-task.sql
 */
 drop function if exists jetpack.create_task cascade;
 
@@ -23,7 +23,7 @@ $$ language sql volatile;
 
 
 /*
-  functions/dispatch-action.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/functions/dispatch-action.sql
 */
 drop function if exists jetpack.dispatch_action cascade;
 
@@ -35,7 +35,7 @@ $$ language sql volatile;
 
 
 /*
-  functions/get-next-task.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/functions/get-next-task.sql
 */
 drop function if exists jetpack.get_next_task cascade;
 
@@ -62,7 +62,7 @@ $$ language plpgsql volatile;
 
 
 /*
-  functions/get-subtree-states-agg.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/functions/get-subtree-states-agg.sql
 */
 drop function if exists jetpack.get_subtree_states_agg;
 
@@ -83,7 +83,7 @@ $$
 language sql stable;
 
 /*
-  triggers/on-insert-action-eval-transition.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/triggers/on-insert-action-eval-transition.sql
 */
 drop function if exists jetpack.eval_transition cascade;
 
@@ -134,9 +134,17 @@ create function jetpack.eval_transition() returns trigger as $$
         }
     }
     function evaluateOperator(operator, task) {
-        var cache = {};
+        const cache = {};
+        const evaluatedOperation = evalOp(operator);
+        if (isEffectOperator(evaluatedOperation)) {
+            if (typeof evaluatedOperation === "string") {
+                return changeState(evaluatedOperation);
+            }
+            return evaluatedOperation;
+        }
+        return noOp(evaluatedOperation);
         function evalOpAsValue(op) {
-            var valueOp = evalOp(op);
+            const valueOp = evalOp(op);
             if (isPrimitive(valueOp)) {
                 return value(valueOp);
             }
@@ -152,17 +160,17 @@ create function jetpack.eval_transition() returns trigger as $$
             }
             // Logical
             if (op.type === "condition") {
-                var when = evalOpAsValue(op.when);
-                var passed = Boolean(when.value);
+                const when = evalOpAsValue(op.when);
+                const passed = Boolean(when.value);
                 if (!passed) {
-                    return op["else"] ? evalOp(op["else"]) : noOp();
+                    return op.else ? evalOp(op.else) : noOp();
                 }
                 return evalOp(op.then);
             }
             // Comparison
             if ("left" in op && "right" in op) {
-                var left = evalOpAsValue(op.left);
-                var right = evalOpAsValue(op.right);
+                const left = evalOpAsValue(op.left);
+                const right = evalOpAsValue(op.right);
                 if (op.type === "eq") {
                     return value(left.value === right.value);
                 }
@@ -188,19 +196,18 @@ create function jetpack.eval_transition() returns trigger as $$
             }
             // Logical
             if (op.type === "any") {
-                var valueOperators = op.values.map(evalOpAsValue);
-                return value(valueOperators.some(function (valueOperator) { return Boolean(valueOperator.value); }));
+                const valueOperators = op.values.map(evalOpAsValue);
+                return value(valueOperators.some(valueOperator => Boolean(valueOperator.value)));
             }
             if (op.type === "all") {
-                var valueOperators = op.values.map(evalOpAsValue);
-                return value(valueOperators.every(function (valueOperator) { return Boolean(valueOperator.value); }));
+                const valueOperators = op.values.map(evalOpAsValue);
+                return value(valueOperators.every(valueOperator => Boolean(valueOperator.value)));
             }
             // Arithmetic
             if (op.type === "sum") {
-                var numberOperators = op.values.map(evalOpAsValue);
-                var total = 0;
-                for (var _i = 0, numberOperators_1 = numberOperators; _i < numberOperators_1.length; _i++) {
-                    var numberOperator = numberOperators_1[_i];
+                const numberOperators = op.values.map(evalOpAsValue);
+                let total = 0;
+                for (const numberOperator of numberOperators) {
                     if (typeof numberOperator.value !== "number") {
                         throw new Error("Value operator must contain a number");
                     }
@@ -220,11 +227,10 @@ create function jetpack.eval_transition() returns trigger as $$
             }
             if (op.type === "subtree_state_count") {
                 if (!cache.subtree) {
-                    var subtreeQuery = plv8.prepare("select * from jetpack.get_subtree_states_agg($1)", ["bigint"]);
-                    var subtreeStates = subtreeQuery.execute([task.id]);
+                    const subtreeQuery = plv8.prepare(`select * from jetpack.get_subtree_states_agg($1)`, ["bigint"]);
+                    const subtreeStates = subtreeQuery.execute([task.id]);
                     cache.subtree = {};
-                    for (var _c = 0, subtreeStates_1 = subtreeStates; _c < subtreeStates_1.length; _c++) {
-                        var row = subtreeStates_1[_c];
+                    for (const row of subtreeStates) {
                         cache.subtree[row.state] = row.descendants;
                     }
                 }
@@ -232,8 +238,8 @@ create function jetpack.eval_transition() returns trigger as $$
             }
             // Actions
             if ("action" in op) {
-                var action = (_b = evalOpAsValue(op.action).value) === null || _b === void 0 ? void 0 : _b.toString();
-                var payload = op.payload && evalOpAsValue(op.payload).value;
+                const action = (_b = evalOpAsValue(op.action).value) === null || _b === void 0 ? void 0 : _b.toString();
+                const payload = op.payload && evalOpAsValue(op.payload).value;
                 if (!action)
                     return null;
                 if (op.type === "dispatch_action_to_parent") {
@@ -248,14 +254,6 @@ create function jetpack.eval_transition() returns trigger as $$
             }
             return op;
         }
-        var evaluatedOperation = evalOp(operator);
-        if (isEffectOperator(evaluatedOperation)) {
-            if (typeof evaluatedOperation === "string") {
-                return changeState(evaluatedOperation);
-            }
-            return evaluatedOperation;
-        }
-        return noOp(evaluatedOperation);
     }
     function isPrimitive(op) {
         return typeof op !== "object" || op === null;
@@ -270,7 +268,7 @@ create function jetpack.eval_transition() returns trigger as $$
             return false;
         return effectTypes.includes(op.type);
     }
-    var effectTypes = [
+    const effectTypes = [
         "change_state",
         "create_root_task",
         "create_sub_task",
@@ -283,13 +281,13 @@ create function jetpack.eval_transition() returns trigger as $$
     ];
 
     function createTask(task) {
-        var createTaskQuery = plv8.prepare("select * from jetpack.create_task($1, $2, $3, $4)", ["uuid", "bigint", "jsonb", "jsonb"]);
-        var newTask = createTaskQuery.execute([
+        const createTaskQuery = plv8.prepare("select * from jetpack.create_task($1, $2, $3, $4)", ["uuid", "bigint", "jsonb", "jsonb"]);
+        const [newTask] = createTaskQuery.execute([
             task.machine_id,
             task.parent_id,
             task.params || {},
             task.context || {},
-        ])[0];
+        ]);
         return newTask;
     }
 
@@ -305,56 +303,61 @@ create function jetpack.eval_transition() returns trigger as $$
         if (op.type === "create_sub_task") {
             createTask({
                 machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
-                parent_id: op.parent_id === "$self" ? task.id : op.parent_id,
+                parent_id: task.id,
             });
-            return;
+            return null;
         }
         if (op.type === "create_root_task") {
             createTask({
                 machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
                 parent_id: null,
             });
-            return;
+            return null;
         }
+        return null;
     }
 
     function updateTask(task) {
-        var updateTaskQuery = plv8.prepare("\n    update jetpack.tasks \n    set context = $1, state = $2, attempts = $3 \n    where id = $4\n    returning *\n    ", ["jsonb", "text", "int", "bigint"]);
-        var updatedTask = updateTaskQuery.execute([
+        const updateTaskQuery = plv8.prepare(`
+    update jetpack.tasks 
+    set context = $1, state = $2, attempts = $3 
+    where id = $4
+    returning *
+    `, ["jsonb", "text", "int", "bigint"]);
+        const [updatedTask] = updateTaskQuery.execute([
             task.context,
             task.state,
             task.attempts,
             task.id,
-        ])[0];
+        ]);
         return updatedTask;
     }
 
     function beforeInsertAction() {
         var _a, _b;
-        var type = NEW.type, task_id = NEW.task_id;
-        var taskQuery = plv8.prepare("select * from jetpack.tasks where id = $1", ["bigint"]);
-        var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
-        var task = taskQuery.execute([task_id])[0];
+        const { type, task_id } = NEW;
+        const taskQuery = plv8.prepare("select * from jetpack.tasks where id = $1", ["bigint"]);
+        const transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
+        const [task] = taskQuery.execute([task_id]);
         if (!task) {
-            throw new Error("Task " + task_id + " does not exist");
+            throw new Error(`Task ${task_id} does not exist`);
         }
         NEW.previous_state = task.state;
         NEW.new_state = task.state;
         NEW.operations = [noOp()];
-        var machine = transitionsQuery.execute([task.machine_id])[0];
+        const [machine] = transitionsQuery.execute([task.machine_id]);
         if (!machine)
             return NEW;
-        var operation = (_b = (_a = machine.transitions[task.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b[type];
+        const operation = (_b = (_a = machine.transitions[task.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b[type];
         if (!operation)
             return NEW;
-        var operations = [].concat(operation);
-        var effectOperators = [];
-        for (var _i = 0, operations_1 = operations; _i < operations_1.length; _i++) {
-            var operation_1 = operations_1[_i];
-            var effectOperator = evaluateOperation(operation_1, task);
-            var effectedTask = runEffect(effectOperator, task);
+        const operations = [].concat(operation);
+        const effectOperators = [];
+        for (const operation of operations) {
+            const effectOperator = evaluateOperation(operation, task);
+            const effectedTask = runEffect(effectOperator, task);
             if (effectedTask) {
-                var updatedTask = updateTask(effectedTask);
+                const updatedTask = updateTask(effectedTask);
                 NEW.new_state = updatedTask.state;
             }
             effectOperators.push(effectOperator);
@@ -377,7 +380,7 @@ execute procedure jetpack.eval_transition();
 
 
 /*
-  triggers/on-new-state-dispatch-enter-transition.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/triggers/on-new-state-dispatch-enter-transition.sql
 */
 drop function if exists jetpack.eval_enter_transition cascade;
 
@@ -386,15 +389,15 @@ create function jetpack.eval_enter_transition() returns trigger as $$
   'use strict';
 
   function dispatchAction(taskId, action) {
-      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
+      const dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
       dispatchActionQuery.execute([taskId, action]);
   }
 
   function onNewTaskState() {
       var _a;
-      var transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
-      var machine = transitionsQuery.execute([NEW.machine_id])[0];
-      var onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
+      const transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
+      const [machine] = transitionsQuery.execute([NEW.machine_id]);
+      const onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
       if ("ENTER" in onEvent) {
           dispatchAction(NEW.id, "ENTER");
       }
@@ -421,7 +424,7 @@ execute procedure jetpack.eval_enter_transition();
 
 
 /*
-  triggers/on-new-state-update-subtree.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/triggers/on-new-state-update-subtree.sql
 */
 drop function if exists jetpack.update_subtree_states cascade; 
 
@@ -511,7 +514,7 @@ execute procedure jetpack.update_subtree_states();
 
 
 /*
-  triggers/on-new-subtree-dispatch-subtree-action.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/triggers/on-new-subtree-dispatch-subtree-action.sql
 */
 drop function if exists jetpack.dispatch_subtree_action_once cascade;
 drop function if exists jetpack.dispatch_subtree_action cascade;
@@ -542,7 +545,7 @@ create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_st
   'use strict';
 
   function dispatchAction(taskId, action) {
-      var dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
+      const dispatchActionQuery = plv8.prepare("select * from jetpack.dispatch_action($1, $2)", ["bigint", "text"]);
       dispatchActionQuery.execute([taskId, action]);
   }
 
@@ -550,9 +553,12 @@ create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_st
       var _a;
       if (Number(subtree_state.task_id) === 0)
           return null;
-      var machineQuery = plv8.prepare("select m.*, t.state as task_state from jetpack.machines m\n    inner join jetpack.tasks t\n    on t.machine_id = m.id\n    and t.id = $1", ["bigint"]);
-      var machine = machineQuery.execute([subtree_state.task_id])[0];
-      var onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[machine.task_state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
+      const machineQuery = plv8.prepare(`select m.*, t.state as task_state from jetpack.machines m
+    inner join jetpack.tasks t
+    on t.machine_id = m.id
+    and t.id = $1`, ["bigint"]);
+      const [machine] = machineQuery.execute([subtree_state.task_id]);
+      const onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[machine.task_state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
       if ("SUBTREE_UPDATE" in onEvent) {
           dispatchAction(subtree_state.task_id, "SUBTREE_UPDATE");
       }
@@ -580,7 +586,7 @@ execute function jetpack.dispatch_subtree_action_once();
 
 
 /*
-  triggers/on-upsert-task-set-path.sql
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/triggers/on-upsert-task-set-path.sql
 */
 drop function if exists jetpack.set_task_path cascade;
 

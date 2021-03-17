@@ -168,7 +168,6 @@ export const createSubTask = (opts: {
 }): CreateSubTaskOperator => ({
   type: "create_sub_task",
   machine_id: opts.machine.id,
-  parent_id: "$self",
   params,
   context,
 });

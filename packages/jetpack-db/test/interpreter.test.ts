@@ -1,5 +1,5 @@
-import { evaluateOperation } from "../../db/plv8/interpreter";
-import { ops, TaskRow } from "../../src";
+import { ops, TaskRow } from "@djgrant/jetpack";
+import { evaluateOperation } from "../src/interpreter";
 
 declare const global: { plv8: any };
 

@@ -143,19 +143,17 @@ export interface IncrementAttemptsOperator {
   type: "increment_attempts";
 }
 
-export interface CreateSubTaskOperator<Params = {}, Context = {}> {
+export interface CreateSubTaskOperator {
   type: "create_sub_task";
   machine_id: string;
-  parent_id: string;
-  params?: Params;
-  context?: Context;
+  params?: {};
+  context?: {};
 }
 
-export interface CreateRootTaskOperator<Params = {}, Context = {}> {
+export interface CreateRootTaskOperator {
   type: "create_root_task";
   machine_id: string;
-  params?: Params;
-  context?: Context;
+  params?: {};
 }
 
 export interface DispatchActionToRootOperator {

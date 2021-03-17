@@ -1,13 +1,15 @@
+import { ops, createBaseMachine, Jetpack } from "@djgrant/jetpack";
 import { migrate, connectionString } from "../setup/arrange";
-import { Jetpack, createBaseMachine, MachineOptions, ops } from "../../src";
+import { makeMachineTester } from "../setup/assert";
 import { Pool } from "pg";
 
 const pool = new Pool({ connectionString });
+const testMachine = makeMachineTester(pool);
 
-describe("machine", () => {
-  beforeEach(() => migrate());
-  afterAll(() => pool.end());
+beforeEach(() => migrate());
+afterAll(() => pool.end());
 
+describe("state transitions", () => {
   it("enters the initial state", async () => {
     await testMachine({
       machineDef: {
@@ -17,7 +19,7 @@ describe("machine", () => {
           a: {},
         },
       },
-      expectedEndState: "a",
+      expectedTask: { state: "a" },
       expectedActions: [],
     });
   });
@@ -36,7 +38,7 @@ describe("machine", () => {
           b: {},
         },
       },
-      expectedEndState: "b",
+      expectedTask: { state: "b" },
       expectedActions: [
         {
           type: "ENTER",
@@ -44,6 +46,7 @@ describe("machine", () => {
           operations: [
             {
               type: "change_state",
+              new_state: "b",
             },
           ],
         },
@@ -65,7 +68,7 @@ describe("machine", () => {
           b: {},
         },
       },
-      expectedEndState: "b",
+      expectedTask: { state: "b" },
       expectedActions: [
         {
           type: "ENTER",
@@ -73,41 +76,7 @@ describe("machine", () => {
           operations: [
             {
               type: "change_state",
-            },
-          ],
-        },
-      ],
-    });
-  });
-
-  it("handles conditions", async () => {
-    await testMachine({
-      machineDef: {
-        name: "Test Task",
-        initial: "initial",
-        states: {
-          initial: {
-            onEvent: {
-              ENTER: ops.condition({
-                when: true,
-                then: ops.changeState("pass"),
-                else: ops.changeState("fail"),
-              }),
-            },
-          },
-          pass: {},
-          fail: {},
-        },
-      },
-      expectedEndState: "pass",
-      expectedActions: [
-        {
-          type: "ENTER",
-          previous_state: "initial",
-          new_state: "pass",
-          operations: [
-            {
-              type: "change_state",
+              new_state: "b",
             },
           ],
         },
@@ -134,7 +103,7 @@ describe("machine", () => {
           c: {},
         },
       },
-      expectedEndState: "c",
+      expectedTask: { state: "c" },
       expectedActions: [
         {
           type: "ENTER",
@@ -161,42 +130,121 @@ describe("machine", () => {
       ],
     });
   });
+});
 
-  async function testMachine({
-    machineDef,
-    expectedActions,
-    expectedEndState,
-  }: {
-    machineDef: MachineOptions;
-    expectedActions?: {}[];
-    expectedEndState: string;
-  }) {
-    const testMachine = createBaseMachine(machineDef);
-
-    testMachine.onRunning(async () => {});
-
-    const jetpack = new Jetpack({
-      db: connectionString,
-      machines: [testMachine],
-      logger: () => {},
+describe("non-trivial machines", () => {
+  it("handles conditions", async () => {
+    await testMachine({
+      machineDef: {
+        name: "Test Task",
+        initial: "initial",
+        states: {
+          initial: {
+            onEvent: {
+              ENTER: ops.condition({
+                when: true,
+                then: ops.changeState("pass"),
+                else: ops.changeState("fail"),
+              }),
+            },
+          },
+          pass: {},
+          fail: {},
+        },
+      },
+      expectedTask: { state: "pass" },
+      expectedActions: [
+        {
+          type: "ENTER",
+          previous_state: "initial",
+          new_state: "pass",
+          operations: [
+            {
+              type: "change_state",
+              new_state: "pass",
+            },
+          ],
+        },
+      ],
     });
+  });
+});
 
-    await jetpack.createTask({ machine: testMachine });
-    await jetpack.runWorkerOnce();
-    await jetpack.end();
+describe("multiple operations", () => {
+  it("handles multiple operations", async () => {
+    await testMachine({
+      machineDef: {
+        name: "Test Task",
+        initial: "a",
+        states: {
+          a: {
+            onEvent: {
+              ENTER: [
+                ops.changeState("b"),
+                ops.dispatchActionToParent("ACTION_1"),
+                ops.dispatchActionToRoot("ACTION_2"),
+              ],
+            },
+          },
+          b: {},
+        },
+      },
+      expectedTask: { state: "b" },
+      expectedActions: [
+        {
+          type: "ENTER",
+          previous_state: "a",
+          new_state: "b",
+          operations: [
+            {
+              type: "change_state",
+              new_state: "b",
+            },
+            {
+              type: "dispatch_action_to_parent",
+              action: "ACTION_1",
+            },
+            {
+              type: "dispatch_action_to_root",
+              action: "ACTION_2",
+            },
+          ],
+        },
+      ],
+    });
+  });
+});
 
-    if (expectedActions) {
-      const { rows: actions } = await pool.query(
-        "select * from jetpack.actions where task_id = 1 order by id"
-      );
+describe("effects", () => {
+  it("increments attempts", async () => {
+    await testMachine({
+      machineDef: {
+        name: "Test Task",
+        initial: "a",
+        states: {
+          a: {
+            onEvent: {
+              ENTER: ops.incrementAttempts(),
+            },
+          },
+        },
+      },
+      expectedTask: { state: "a" },
+      expectedActions: [
+        {
+          type: "ENTER",
+          previous_state: "a",
+          new_state: "a",
+          operations: [{ type: "increment_attempts" }],
+        },
+      ],
+    });
+  });
 
-      expect(actions).toMatchObject(expectedActions);
-    }
-
-    const { rows: tasks } = await pool.query(
-      "select * from jetpack.tasks where id = 1"
-    );
-
-    expect(tasks[0].state).toEqual(expectedEndState);
-  }
+  it.todo("creates sub tasks of current task");
+  it.todo("creates sub tasks with params");
+  it.todo("creates sub tasks, merging context");
+  it.todo("creates root tasks");
+  it.todo("creates root tasks with params");
+  it.todo("resolves $self to machine ID");
 });

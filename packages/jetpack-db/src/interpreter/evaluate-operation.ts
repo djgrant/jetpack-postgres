@@ -28,6 +28,16 @@ function evaluateOperator(
   task: TaskRow
 ): Exclude<EffectOperator, string> {
   const cache: Cache = {};
+  const evaluatedOperation = evalOp(operator);
+
+  if (isEffectOperator(evaluatedOperation)) {
+    if (typeof evaluatedOperation === "string") {
+      return ops.changeState(evaluatedOperation);
+    }
+    return evaluatedOperation;
+  }
+
+  return ops.noOp(evaluatedOperation);
 
   function evalOpAsValue(op: Operator): ValueOperator {
     const valueOp = evalOp(op);
@@ -164,17 +174,6 @@ function evaluateOperator(
 
     return op;
   }
-
-  const evaluatedOperation = evalOp(operator);
-
-  if (isEffectOperator(evaluatedOperation)) {
-    if (typeof evaluatedOperation === "string") {
-      return ops.changeState(evaluatedOperation);
-    }
-    return evaluatedOperation;
-  }
-
-  return ops.noOp(evaluatedOperation);
 }
 
 function isPrimitive(op: Operator): op is Primitive {

@@ -1,5 +1,5 @@
+import { Jetpack, createBaseMachine } from "@djgrant/jetpack";
 import { migrate, connectionString } from "../setup/arrange";
-import { Jetpack, createBaseMachine } from "../../src";
 import { Pool } from "pg";
 
 const pool = new Pool({ connectionString });

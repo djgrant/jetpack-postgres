@@ -154,6 +154,7 @@ export interface CreateRootTaskOperator {
   type: "create_root_task";
   machine_id: string;
   params?: {};
+  context?: {};
 }
 
 export interface DispatchActionToRootOperator {

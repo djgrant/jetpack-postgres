@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { connectionString } from "../setup/arrange";
 import {
+  Machine,
   Jetpack,
   createBaseMachine,
   MachineOptions,
@@ -45,5 +46,33 @@ export function makeMachineTester(pool: Pool) {
     );
 
     expect(tasks[0]).toMatchObject(expectedTask);
+  };
+}
+
+export function makeWorkerRunner(pool: Pool) {
+  return async function runTestWorker(
+    machines: Machine[],
+    callback: (jetpack: Jetpack) => Promise<any>
+  ) {
+    const jetpack = new Jetpack({
+      db: connectionString,
+      machines: machines,
+      logger: () => {},
+    });
+
+    await callback(jetpack);
+
+    await jetpack.runWorkerOnce();
+    await jetpack.end();
+
+    const { rows: actions } = await pool.query<ActionRow>(
+      "select * from jetpack.actions where task_id = 1 order by id"
+    );
+
+    const { rows: tasks } = await pool.query<TaskRow>(
+      "select * from jetpack.tasks order by id"
+    );
+
+    return { tasks, actions };
   };
 }

@@ -145,12 +145,10 @@ create function jetpack.eval_transition() returns trigger as $$
         return noOp(evaluatedOperation);
         function evalOpAsValue(op) {
             const valueOp = evalOp(op);
-            if (isPrimitive(valueOp)) {
+            if (isPrimitive(valueOp))
                 return value(valueOp);
-            }
-            if (isValueOperator(valueOp)) {
+            if (isValueOperator(valueOp))
                 return valueOp;
-            }
             throw new Error("Operator must ulimately return a value type");
         }
         function evalOp(op) {
@@ -304,6 +302,8 @@ create function jetpack.eval_transition() returns trigger as $$
             createTask({
                 machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
                 parent_id: task.id,
+                params: op.params,
+                context: Object.assign(Object.assign({}, task.context), op.context),
             });
             return null;
         }
@@ -311,6 +311,8 @@ create function jetpack.eval_transition() returns trigger as $$
             createTask({
                 machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
                 parent_id: null,
+                params: op.params,
+                context: op.context,
             });
             return null;
         }

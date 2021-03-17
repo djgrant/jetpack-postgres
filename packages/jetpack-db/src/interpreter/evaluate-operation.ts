@@ -41,12 +41,8 @@ function evaluateOperator(
 
   function evalOpAsValue(op: Operator): ValueOperator {
     const valueOp = evalOp(op);
-    if (isPrimitive(valueOp)) {
-      return ops.value(valueOp);
-    }
-    if (isValueOperator(valueOp)) {
-      return valueOp;
-    }
+    if (isPrimitive(valueOp)) return ops.value(valueOp);
+    if (isValueOperator(valueOp)) return valueOp;
     throw new Error("Operator must ulimately return a value type");
   }
 

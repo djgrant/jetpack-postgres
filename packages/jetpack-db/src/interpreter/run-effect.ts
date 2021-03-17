@@ -16,6 +16,8 @@ export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
     createTask({
       machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
       parent_id: task.id,
+      params: op.params,
+      context: { ...task.context, ...op.context },
     });
     return null;
   }
@@ -24,6 +26,8 @@ export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
     createTask({
       machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
       parent_id: null,
+      params: op.params,
+      context: op.context,
     });
     return null;
   }

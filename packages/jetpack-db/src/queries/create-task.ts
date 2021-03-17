@@ -3,8 +3,8 @@ import { TaskRow } from "@djgrant/jetpack";
 interface TaskInput {
   machine_id: string;
   parent_id?: string | null;
-  params?: JSON;
-  context?: JSON;
+  params?: {};
+  context?: {};
 }
 
 export function createTask(task: TaskInput): TaskRow {

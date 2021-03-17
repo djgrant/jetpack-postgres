@@ -8,8 +8,8 @@ type Options = {
 
 export class Execution {
   id: string;
-  params: {};
-  context: {};
+  params: any;
+  context: any;
   attempts: number;
   db: Db;
 

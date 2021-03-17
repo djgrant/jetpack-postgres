@@ -1,10 +1,11 @@
-import { ops, createBaseMachine, Jetpack } from "@djgrant/jetpack";
+import { ops, createBaseMachine } from "@djgrant/jetpack";
 import { migrate, connectionString } from "../setup/arrange";
-import { makeMachineTester } from "../setup/assert";
+import { makeMachineTester, makeWorkerRunner } from "../setup/assert";
 import { Pool } from "pg";
 
 const pool = new Pool({ connectionString });
 const testMachine = makeMachineTester(pool);
+const runTestWorker = makeWorkerRunner(pool);
 
 beforeEach(() => migrate());
 afterAll(() => pool.end());
@@ -241,10 +242,242 @@ describe("effects", () => {
     });
   });
 
-  it.todo("creates sub tasks of current task");
-  it.todo("creates sub tasks with params");
-  it.todo("creates sub tasks, merging context");
-  it.todo("creates root tasks");
-  it.todo("creates root tasks with params");
-  it.todo("resolves $self to machine ID");
+  it("creates sub tasks of current task", async () => {
+    const subMachine = createBaseMachine({
+      name: "Sub Machine",
+      initial: "a",
+      states: {},
+    });
+
+    const rootMachine = createBaseMachine({
+      name: "Root Machine",
+      initial: "a",
+      states: {
+        a: {
+          onEvent: {
+            ENTER: ops.createSubTask({ machine: subMachine }),
+          },
+        },
+      },
+    });
+
+    const { tasks } = await runTestWorker([rootMachine, subMachine], jetpack =>
+      jetpack.createTask({ machine: rootMachine })
+    );
+
+    expect(tasks).toMatchObject([
+      { id: "1", machine_id: rootMachine.id, parent_id: null },
+      { id: "2", machine_id: subMachine.id, parent_id: "1" },
+    ]);
+  });
+
+  it("creates sub tasks with params", async () => {
+    const subMachine = createBaseMachine({
+      name: "Sub Machine",
+      initial: "a",
+      states: {},
+    });
+
+    const rootMachine = createBaseMachine({
+      name: "Root Machine",
+      initial: "a",
+      states: {
+        a: {
+          onEvent: {
+            ENTER: ops.createSubTask({
+              machine: subMachine,
+              params: { a: 1, b: { c: 2 } },
+            }),
+          },
+        },
+      },
+    });
+
+    const { tasks } = await runTestWorker([rootMachine, subMachine], jetpack =>
+      jetpack.createTask({ machine: rootMachine })
+    );
+
+    expect(tasks).toMatchObject([
+      {
+        id: "1",
+        machine_id: rootMachine.id,
+        parent_id: null,
+        params: {},
+      },
+      {
+        id: "2",
+        machine_id: subMachine.id,
+        parent_id: "1",
+        params: { a: 1, b: { c: 2 } },
+      },
+    ]);
+  });
+
+  it("creates sub tasks, shallow merging context", async () => {
+    const subMachine = createBaseMachine({
+      name: "Sub Machine",
+      initial: "a",
+      states: {},
+    });
+
+    const rootMachine = createBaseMachine({
+      name: "Root Machine",
+      initial: "a",
+      states: {
+        a: {
+          onEvent: {
+            ENTER: ops.createSubTask({
+              machine: subMachine,
+              context: { a: 2, b: { e: 4 }, f: 5 },
+            }),
+          },
+        },
+      },
+    });
+
+    const { tasks } = await runTestWorker([rootMachine, subMachine], jetpack =>
+      jetpack.createTask({
+        machine: rootMachine,
+        context: { a: 1, b: { c: 2 }, d: 3 },
+      })
+    );
+
+    expect(tasks).toMatchObject([
+      {
+        id: "1",
+        machine_id: rootMachine.id,
+        parent_id: null,
+        context: { a: 1, b: { c: 2 }, d: 3 },
+      },
+      {
+        id: "2",
+        machine_id: subMachine.id,
+        parent_id: "1",
+        context: { a: 2, b: { e: 4 }, d: 3, f: 5 },
+      },
+    ]);
+  });
+
+  it("creates root tasks", async () => {
+    const adjacentMachine = createBaseMachine({
+      name: "Sub Machine",
+      initial: "a",
+      states: {},
+    });
+
+    const rootMachine = createBaseMachine({
+      name: "Root Machine",
+      initial: "a",
+      states: {
+        a: {
+          onEvent: {
+            ENTER: ops.createRootTask({ machine: adjacentMachine }),
+          },
+        },
+      },
+    });
+
+    const { tasks } = await runTestWorker(
+      [rootMachine, adjacentMachine],
+      jetpack =>
+        jetpack.createTask({
+          machine: rootMachine,
+        })
+    );
+
+    expect(tasks).toMatchObject([
+      {
+        id: "1",
+        machine_id: rootMachine.id,
+        parent_id: null,
+      },
+      {
+        id: "2",
+        machine_id: adjacentMachine.id,
+        parent_id: null,
+      },
+    ]);
+  });
+
+  it("creates root tasks with params", async () => {
+    const adjacentMachine = createBaseMachine({
+      name: "Sub Machine",
+      initial: "a",
+      states: {},
+    });
+
+    const rootMachine = createBaseMachine({
+      name: "Root Machine",
+      initial: "a",
+      states: {
+        a: {
+          onEvent: {
+            ENTER: ops.createRootTask({
+              machine: adjacentMachine,
+              params: { a: 1 },
+            }),
+          },
+        },
+      },
+    });
+
+    const { tasks } = await runTestWorker(
+      [rootMachine, adjacentMachine],
+      jetpack =>
+        jetpack.createTask({
+          machine: rootMachine,
+        })
+    );
+
+    expect(tasks).toMatchObject([
+      {
+        id: "1",
+        machine_id: rootMachine.id,
+        parent_id: null,
+      },
+      {
+        id: "2",
+        machine_id: adjacentMachine.id,
+        parent_id: null,
+        params: { a: 1 },
+      },
+    ]);
+  });
+
+  it("resolves $self to machine ID", async () => {
+    const rootMachine = createBaseMachine({
+      name: "Root Machine",
+      initial: "a",
+      states: {
+        a: {
+          onEvent: {
+            ENTER: ops.condition({
+              when: ops.params("isRoot"),
+              then: ops.createSubTask({
+                machine: ops.self(),
+                params: { isRoot: false },
+              }),
+            }),
+          },
+        },
+      },
+    });
+
+    const { tasks } = await runTestWorker([rootMachine], jetpack =>
+      jetpack.createTask({ machine: rootMachine, params: { isRoot: true } })
+    );
+
+    expect(tasks).toMatchObject([
+      {
+        id: "1",
+        machine_id: rootMachine.id,
+        parent_id: null,
+      },
+      {
+        id: "2",
+        machine_id: rootMachine.id,
+        parent_id: "1",
+      },
+    ]);
+  });
 });

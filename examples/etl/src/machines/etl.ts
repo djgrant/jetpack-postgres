@@ -15,7 +15,10 @@ export const etlMachine = createBaseMachine({
   states: {
     done: {
       onEvent: {
-        ENTER: ops.createSubTask({ machine: fetchDataMachine }),
+        ENTER: ops.createSubTask({
+          machine: fetchDataMachine,
+          context: { depth: 0 },
+        }),
         SUBTREE_UPDATE: [
           ops.condition({
             when: subtreeEndWithFailure,

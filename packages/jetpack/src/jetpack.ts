@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from "uuid";
-import { Db } from "./internal/db";
 import { DbConnection, NewTaskRow, TaskRow } from "./interfaces";
+import { Db } from "./internal/db";
 import { log } from "./internal/utils";
 import { POLL_INTERVAL } from "./internal/config";
 import { Machine } from "./machine";
@@ -53,7 +53,7 @@ export class Jetpack {
       machineId: task.machine.id,
       parentId: task.parentId || null,
       params: task.params,
-      context: task.params,
+      context: task.context,
     });
   }
 

@@ -168,8 +168,8 @@ export const createSubTask = (opts: {
 }): CreateSubTaskOperator => ({
   type: "create_sub_task",
   machine_id: opts.machine.id,
-  params,
-  context,
+  params: opts.params,
+  context: opts.context,
 });
 
 export const createRootTask = (opts: {
@@ -179,7 +179,8 @@ export const createRootTask = (opts: {
 }): CreateRootTaskOperator => ({
   type: "create_root_task",
   machine_id: opts.machine.id,
-  params,
+  params: opts.params,
+  context: opts.context,
 });
 
 export const incrementAttempts = (): IncrementAttemptsOperator => ({

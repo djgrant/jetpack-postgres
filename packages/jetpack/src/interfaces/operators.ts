@@ -31,7 +31,7 @@ export type ComparisonOperator =
   | EqOperator
   | NotEqOperator;
 
-export type LogicalOperator = AnyOperator | AllOperator;
+export type LogicalOperator = AnyOperator | AllOperator | NotOperator;
 
 export type ArithmeticOperator = SumOperator;
 
@@ -56,16 +56,19 @@ export interface ConditionOperator {
 }
 
 // Logical
-interface LogicalBase {
+export interface AnyOperator {
+  type: "any";
   values: ExpressionOperator[];
 }
 
-export interface AnyOperator extends LogicalBase {
-  type: "any";
+export interface AllOperator {
+  type: "all";
+  values: ExpressionOperator[];
 }
 
-export interface AllOperator extends LogicalBase {
-  type: "all";
+export interface NotOperator {
+  type: "not";
+  value: ExpressionOperator;
 }
 
 // Comparison

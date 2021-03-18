@@ -21,6 +21,7 @@ import {
   LtOperator,
   NoOpOperator,
   NotEqOperator,
+  NotOperator,
   Operator,
   ParamsOperator,
   Primitive,
@@ -79,6 +80,11 @@ export const all = (...values: ExpressionOperator[]): AllOperator => ({
 export const sum = (...values: ExpressionOperator[]): SumOperator => ({
   type: "sum",
   values,
+});
+
+export const not = (value: ExpressionOperator): NotOperator => ({
+  type: "not",
+  value,
 });
 
 // Comparison

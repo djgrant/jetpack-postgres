@@ -56,7 +56,7 @@ function evaluateOperator(
       const when = evalOpAsValue(op.when);
       const passed = Boolean(when.value);
       if (!passed) {
-        return op.else ? evalOp(op.else) : ops.noOp();
+        return typeof op.else !== "undefined" ? evalOp(op.else) : ops.noOp();
       }
       return evalOp(op.then);
     }
@@ -105,6 +105,11 @@ function evaluateOperator(
       return ops.value(
         valueOperators.every(valueOperator => Boolean(valueOperator.value))
       );
+    }
+
+    if (op.type === "not") {
+      const valueOperator = evalOpAsValue(op.value);
+      return ops.value(!Boolean(valueOperator.value));
     }
 
     // Arithmetic

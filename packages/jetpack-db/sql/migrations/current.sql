@@ -161,7 +161,7 @@ create function jetpack.eval_transition() returns trigger as $$
                 const when = evalOpAsValue(op.when);
                 const passed = Boolean(when.value);
                 if (!passed) {
-                    return op.else ? evalOp(op.else) : noOp();
+                    return typeof op.else !== "undefined" ? evalOp(op.else) : noOp();
                 }
                 return evalOp(op.then);
             }
@@ -200,6 +200,10 @@ create function jetpack.eval_transition() returns trigger as $$
             if (op.type === "all") {
                 const valueOperators = op.values.map(evalOpAsValue);
                 return value(valueOperators.every(valueOperator => Boolean(valueOperator.value)));
+            }
+            if (op.type === "not") {
+                const valueOperator = evalOpAsValue(op.value);
+                return value(!Boolean(valueOperator.value));
             }
             // Arithmetic
             if (op.type === "sum") {

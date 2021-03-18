@@ -254,6 +254,29 @@ describe("logical operators", () => {
       expect(result).toEqual(noOpValue(expected));
     });
   });
+
+  test("not", () => {
+    const testCases = [
+      { value: true, expected: false },
+      { value: 1, expected: false },
+      { value: ops.value(1), expected: false },
+      { value: ops.value(0), expected: true },
+      { value: ops.value(null), expected: true },
+      {
+        value: ops.eq(1, 2),
+        expected: true,
+      },
+      {
+        value: ops.condition({ when: false, then: 0, else: 1 }),
+        expected: false,
+      },
+    ];
+    testCases.forEach(({ value, expected }) => {
+      const operation = ops.not(value);
+      const result = evaluateOperation(operation, task);
+      expect(result).toEqual(noOpValue(expected));
+    });
+  });
 });
 
 describe("comparison operators", () => {

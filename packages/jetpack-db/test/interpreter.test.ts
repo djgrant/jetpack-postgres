@@ -16,7 +16,7 @@ const task: TaskRow = {
   machine_id: "guid",
   params: {},
   context: {},
-  attempts: 1,
+  attempts: 2,
   state: "pending",
 };
 
@@ -127,10 +127,23 @@ describe("effects", () => {
 });
 
 describe("getters", () => {
+  test("depth", () => {
+    const cases = [
+      { path: "1", depth: 1 },
+      { path: "1.2.3.4", depth: 4 },
+      { path: "1.4.8.19.23.100", depth: 6 },
+    ];
+    cases.forEach(({ path, depth }) => {
+      const operation = ops.depth();
+      const result = evaluateOperation(operation, { ...task, path });
+      expect(result).toEqual(noOpValue(depth));
+    });
+  });
+
   test("attempts", () => {
     const operation = ops.attempts();
     const result = evaluateOperation(operation, task);
-    expect(result).toEqual(noOpValue(1));
+    expect(result).toEqual(noOpValue(2));
   });
 
   test("params", () => {

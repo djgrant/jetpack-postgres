@@ -223,6 +223,9 @@ create function jetpack.eval_transition() returns trigger as $$
             if (op.type === "attempts") {
                 return value(task.attempts);
             }
+            if (op.type === "depth") {
+                return value(task.path.split(".").length);
+            }
             if (op.type === "subtree_state_count") {
                 if (!cache.subtree) {
                     const subtreeQuery = plv8.prepare(`select * from jetpack.get_subtree_states_agg($1)`, ["bigint"]);

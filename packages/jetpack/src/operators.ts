@@ -7,6 +7,7 @@ import {
   ContextOperator,
   CreateRootTaskOperator,
   CreateSubTaskOperator,
+  DepthOperator,
   DispatchActionToParentOperator,
   DispatchActionToRootOperator,
   DispatchActionToSiblingsOperator,
@@ -40,6 +41,10 @@ export const self = () => ({
 
 export const attempts = (): AttemptsOperator => ({
   type: "attempts",
+});
+
+export const depth = (): DepthOperator => ({
+  type: "depth",
 });
 
 export const params = (path?: string): ParamsOperator => ({

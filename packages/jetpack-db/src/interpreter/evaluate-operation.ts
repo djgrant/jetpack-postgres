@@ -135,6 +135,10 @@ function evaluateOperator(
       return ops.value(task.attempts);
     }
 
+    if (op.type === "depth") {
+      return ops.value(task.path.split(".").length);
+    }
+
     if (op.type === "subtree_state_count") {
       if (!cache.subtree) {
         const subtreeQuery = plv8.prepare<SubtreeStatesAggRow>(

@@ -39,6 +39,7 @@ export type GetterOperator =
   | ParamsOperator
   | ContextOperator
   | AttemptsOperator
+  | DepthOperator
   | SubtreeStateCountOperator;
 
 export interface ValueOperator {
@@ -116,6 +117,10 @@ export interface ContextOperator {
 
 export interface AttemptsOperator {
   type: "attempts";
+}
+
+export interface DepthOperator {
+  type: "depth";
 }
 
 export interface SubtreeStateCountOperator {

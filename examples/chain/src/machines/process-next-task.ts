@@ -13,16 +13,14 @@ export const processNextTaskMachine = createTaskMachine({
   maxAttempts: 3,
   states: {
     done: {
-      onEvent: {
-        ENTER: ifNotLastTask(
-          ops.createSubTask({
-            machine: ops.self(),
-            context: {
-              lastId: ops.context("currentId"),
-            },
-          })
-        ),
-      },
+      ENTER: ifNotLastTask(
+        ops.createSubTask({
+          machine: ops.self(),
+          context: {
+            lastId: ops.context("currentId"),
+          },
+        })
+      ),
     },
   },
 });

@@ -10,33 +10,27 @@ export const taskMachine = createBaseMachine({
   initial: "ready",
   states: {
     ready: {
-      onEvent: {
-        LOCKED_BY_WORKER: "running",
-      },
+      LOCKED_BY_WORKER: "running",
     },
     running: {
-      onEvent: {
-        ENTER: {
-          type: "increment_attempts",
-        },
-        ERROR: "failed",
-        SUCCESS: "done",
+      ENTER: {
+        type: "increment_attempts",
       },
+      ERROR: "failed",
+      SUCCESS: "done",
     },
     failed: {
-      onEvent: {
-        ENTER: {
-          type: "condition",
-          when: {
-            type: "lte",
-            left: {
-              type: "attempts",
-            },
-            right: 5,
+      ENTER: {
+        type: "condition",
+        when: {
+          type: "lte",
+          left: {
+            type: "attempts",
           },
-          then: "ready",
-          else: "abandoned",
+          right: 5,
         },
+        then: "ready",
+        else: "abandoned",
       },
     },
     done: {},

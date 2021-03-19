@@ -32,9 +32,7 @@ describe("state transitions", () => {
         initial: "a",
         states: {
           a: {
-            onEvent: {
-              ENTER: "b",
-            },
+            ENTER: "b",
           },
           b: {},
         },
@@ -62,9 +60,7 @@ describe("state transitions", () => {
         initial: "a",
         states: {
           a: {
-            onEvent: {
-              ENTER: ops.changeState("b"),
-            },
+            ENTER: ops.changeState("b"),
           },
           b: {},
         },
@@ -92,14 +88,10 @@ describe("state transitions", () => {
         initial: "a",
         states: {
           a: {
-            onEvent: {
-              ENTER: "b",
-            },
+            ENTER: "b",
           },
           b: {
-            onEvent: {
-              ENTER: "c",
-            },
+            ENTER: "c",
           },
           c: {},
         },
@@ -141,13 +133,11 @@ describe("non-trivial machines", () => {
         initial: "initial",
         states: {
           initial: {
-            onEvent: {
-              ENTER: ops.condition({
-                when: true,
-                then: ops.changeState("pass"),
-                else: ops.changeState("fail"),
-              }),
-            },
+            ENTER: ops.condition({
+              when: true,
+              then: ops.changeState("pass"),
+              else: ops.changeState("fail"),
+            }),
           },
           pass: {},
           fail: {},
@@ -179,13 +169,11 @@ describe("multiple operations", () => {
         initial: "a",
         states: {
           a: {
-            onEvent: {
-              ENTER: [
-                ops.changeState("b"),
-                ops.dispatchActionToParent("ACTION_1"),
-                ops.dispatchActionToRoot("ACTION_2"),
-              ],
-            },
+            ENTER: [
+              ops.changeState("b"),
+              ops.dispatchActionToParent("ACTION_1"),
+              ops.dispatchActionToRoot("ACTION_2"),
+            ],
           },
           b: {},
         },
@@ -224,9 +212,7 @@ describe("effects", () => {
         initial: "a",
         states: {
           a: {
-            onEvent: {
-              ENTER: ops.incrementAttempts(),
-            },
+            ENTER: ops.incrementAttempts(),
           },
         },
       },
@@ -254,9 +240,7 @@ describe("effects", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            ENTER: ops.createSubTask({ machine: subMachine }),
-          },
+          ENTER: ops.createSubTask({ machine: subMachine }),
         },
       },
     });
@@ -283,12 +267,10 @@ describe("effects", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            ENTER: ops.createSubTask({
-              machine: subMachine,
-              params: { a: 1, b: { c: 2 } },
-            }),
-          },
+          ENTER: ops.createSubTask({
+            machine: subMachine,
+            params: { a: 1, b: { c: 2 } },
+          }),
         },
       },
     });
@@ -325,12 +307,10 @@ describe("effects", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            ENTER: ops.createSubTask({
-              machine: subMachine,
-              context: { a: 2, b: { e: 4 }, f: 5 },
-            }),
-          },
+          ENTER: ops.createSubTask({
+            machine: subMachine,
+            context: { a: 2, b: { e: 4 }, f: 5 },
+          }),
         },
       },
     });
@@ -370,9 +350,7 @@ describe("effects", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            ENTER: ops.createRootTask({ machine: adjacentMachine }),
-          },
+          ENTER: ops.createRootTask({ machine: adjacentMachine }),
         },
       },
     });
@@ -411,12 +389,10 @@ describe("effects", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            ENTER: ops.createRootTask({
-              machine: adjacentMachine,
-              params: { a: 1 },
-            }),
-          },
+          ENTER: ops.createRootTask({
+            machine: adjacentMachine,
+            params: { a: 1 },
+          }),
         },
       },
     });
@@ -450,15 +426,13 @@ describe("effects", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            ENTER: ops.condition({
-              when: ops.params("isRoot"),
-              then: ops.createSubTask({
-                machine: ops.self(),
-                params: { isRoot: false },
-              }),
+          ENTER: ops.condition({
+            when: ops.params("isRoot"),
+            then: ops.createSubTask({
+              machine: ops.self(),
+              params: { isRoot: false },
             }),
-          },
+          }),
         },
       },
     });

@@ -7,12 +7,10 @@ export const fetchDataMachine = createTaskMachine({
   maxAttempts: 3,
   states: {
     done: {
-      onEvent: {
-        ENTER: ops.condition({
-          when: ops.lt(ops.depth(), 10),
-          then: ops.createSubTask({ machine: ops.self() }),
-        }),
-      },
+      ENTER: ops.condition({
+        when: ops.lt(ops.depth(), 10),
+        then: ops.createSubTask({ machine: ops.self() }),
+      }),
     },
   },
 });

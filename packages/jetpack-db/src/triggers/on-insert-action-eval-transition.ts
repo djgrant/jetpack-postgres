@@ -36,7 +36,7 @@ export default function beforeInsertAction() {
   const [machine] = transitionsQuery.execute([task.machine_id]);
   if (!machine) return NEW;
 
-  const operation = machine.transitions[task.state]?.onEvent?.[type];
+  const operation = machine.transitions[task.state]?.[type];
   if (!operation) return NEW;
 
   const operations = ([] as Operator[]).concat(operation);

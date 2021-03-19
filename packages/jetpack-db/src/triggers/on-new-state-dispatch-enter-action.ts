@@ -10,9 +10,9 @@ export default function onNewTaskState() {
   );
 
   const [machine] = transitionsQuery.execute([NEW.machine_id]);
-  const onEvent = machine?.transitions[NEW.state]?.onEvent || {};
+  const transitionMap = machine?.transitions[NEW.state] || {};
 
-  if ("ENTER" in onEvent) {
+  if ("ENTER" in transitionMap) {
     dispatchAction(NEW.id, "ENTER");
   }
 

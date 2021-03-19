@@ -15,9 +15,9 @@ export default function evalSubtreeActions() {
   );
 
   const [machine] = machineQuery.execute([subtree_state.task_id]);
-  const onEvent = machine?.transitions[machine.task_state]?.onEvent || {};
+  const transitionMap = machine?.transitions[machine.task_state] || {};
 
-  if ("SUBTREE_UPDATE" in onEvent) {
+  if ("SUBTREE_UPDATE" in transitionMap) {
     dispatchAction(subtree_state.task_id, "SUBTREE_UPDATE");
   }
 

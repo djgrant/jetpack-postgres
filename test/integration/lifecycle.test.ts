@@ -14,9 +14,7 @@ describe("machine", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            TEST_ACTION: "b",
-          },
+          TEST_ACTION: "b",
         },
         b: {},
       },
@@ -49,9 +47,7 @@ describe("machine", () => {
       initial: "a",
       states: {
         a: {
-          onEvent: {
-            ENTER: "a",
-          },
+          ENTER: "a",
         },
       },
     });

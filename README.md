@@ -36,10 +36,8 @@ Transitions can be described in two forms:
   states: {
     ready: {},
     running: {
-      onEvent: {
-        CANCEL: 'failed',
-        SUCCESS: 'done'
-      }
+      CANCEL: 'failed',
+      SUCCESS: 'done'
     },
     failed: {},
     done: {}
@@ -53,9 +51,7 @@ As well as being triggered by events, transitions can also be triggered whenever
 {
   states: {
     failed: {
-      onEvent: {
-        ENTER: "ready";
-      }
+      ENTER: "ready";
     }
   }
 }
@@ -67,16 +63,14 @@ Whenever the failed state is entered this machine immediately transitions to the
 {
   states: {
     failed: {
-      onEvent: {
-        ENTER: {
-          type: 'condition',
-          when: {
-            type: 'lte',
-            left: { type: 'attempts' },
-            right: 5
-          },
-          then: 'ready'
-        }
+      ENTER: {
+        type: 'condition',
+        when: {
+          type: 'lte',
+          left: { type: 'attempts' },
+          right: 5
+        },
+        then: 'ready'
       }
     }
   }
@@ -99,27 +93,21 @@ const taskMachine = createBaseMachine({
   initial: "ready",
   states: {
     ready: {
-      onEvent: {
-        LOCKED_BY_WORKER: "running",
-      },
+      LOCKED_BY_WORKER: "running",
     },
     running: {
-      onEvent: {
-        ERROR: "failed",
-        SUCCESS: "done",
-      },
+      ERROR: "failed",
+      SUCCESS: "done",
     },
     failed: {
-      onEvent: {
-        ENTER: {
-          type: "condition",
-          when: {
-            type: "lte",
-            left: { type: "attempts" },
-            right: 5,
-          },
-          then: "ready",
+      ENTER: {
+        type: "condition",
+        when: {
+          type: "lte",
+          left: { type: "attempts" },
+          right: 5,
         },
+        then: "ready",
       },
     },
     done: {},
@@ -141,20 +129,14 @@ const taskMachine = createBaseMachine({
   initial: "ready",
   states: {
     ready: {
-      onEvent: {
-        LOCKED_BY_WORKER: "running",
-      },
+      LOCKED_BY_WORKER: "running",
     },
     running: {
-      onEvent: {
-        ERROR: "failed",
-        SUCCESS: "done",
-      },
+      ERROR: "failed",
+      SUCCESS: "done",
     },
     failed: {
-      onEvent: {
-        ENTER: ops.retry(5),
-      },
+      ENTER: ops.retry(5),
     },
     done: {},
   },
@@ -209,11 +191,9 @@ export const taskMachine = createTaskMachine({
   maxAttempts: 5,
   states: {
     done: {
-      onEvent: {
-        ENTER: ops.createTask({
-          machine: nextTaskMachine,
-        }),
-      },
+      ENTER: ops.createTask({
+        machine: nextTaskMachine,
+      }),
     },
   },
 });
@@ -348,16 +328,6 @@ when old.assigned_to != new.assigned_to
 execute procedure on_update_todo_assigned_to();
 ```
 
-### Visualising workflows
-
-Once the state machines have been created in the database, they can introspected.
-
-```bash
-$ npx jetpack viz src/machines.ts
-
-Generated visualiation of jetpack workflow: http://localhost:4329
-```
-
 ## Workflows
 
 Operators, which describe what should happen on a certain event, unlock the power of workflows.
@@ -377,40 +347,36 @@ export const bookHoliday = createBaseMachine({
   initial: "ready",
   states: {
     ready: {
-      onEvent: {
-        // Multiple operations can be defined in an array
-        ENTER: [
-          ops.createTask({
-            // `late` enables us to reference machines that have yet to be declared
-            machine: late(() => bookCar),
-          }),
-          ops.createTask({
-            machine: late(() => bookHotel),
-          }),
-          "done",
-        ],
-      },
+      // Multiple operations can be defined in an array
+      ENTER: [
+        ops.createTask({
+          // `late` enables us to reference machines that have yet to be declared
+          machine: late(() => bookCar),
+        }),
+        ops.createTask({
+          machine: late(() => bookHotel),
+        }),
+        "done",
+      ],
     },
     done: {
-      onEvent: {
-        SUBTREE_UPDATE: [
-          ops.cond({
-            when: ops.children.all("done"),
-            then: ops.createRootTask({
-              machine: late(() => onBookingSuccess),
-            }),
+      SUBTREE_UPDATE: [
+        ops.cond({
+          when: ops.children.all("done"),
+          then: ops.createRootTask({
+            machine: late(() => onBookingSuccess),
           }),
-          ops.cond({
-            when: ops.all(
-              ops.children.all("done", "abandoned"),
-              ops.children.some("abandoned")
-            ),
-            then: ops.createRootTask({
-              machine: late(() => onBookingFailure),
-            }),
+        }),
+        ops.cond({
+          when: ops.all(
+            ops.children.all("done", "abandoned"),
+            ops.children.some("abandoned")
+          ),
+          then: ops.createRootTask({
+            machine: late(() => onBookingFailure),
           }),
-        ],
-      },
+        }),
+      ],
     },
   },
 });
@@ -432,21 +398,15 @@ export const bookHolidayComponent = createTaskMachine({
   name: "Book holiday component",
   states: {
     pending: {
-      onEvent: {
-        UNDO: "done",
-      },
+      UNDO: "done",
     },
     error: {
-      onEvent: {
-        ENTER: ops.dispatchEventToSiblings("UNDO"),
-      },
+      ENTER: ops.dispatchEventToSiblings("UNDO"),
     },
     running: {
-      onEvent: {
-        // We only want to undo successful tasks so
-        // let the task finish running before this event is processed
-        UNDO: ops.deferEventUntilNextTransition(),
-      },
+      // We only want to undo successful tasks so
+      // let the task finish running before this event is processed
+      UNDO: ops.deferEventUntilNextTransition(),
     },
   },
 });
@@ -455,9 +415,7 @@ export const bookCar = bookHolidayComponent.extend({
   name: "Book car",
   states: {
     done: {
-      onEvent: {
-        UNDO: ops.createTask({ machine: cancelCar }),
-      },
+      UNDO: ops.createTask({ machine: cancelCar }),
     },
   },
 });
@@ -466,9 +424,7 @@ export const bookHotel = bookHolidayComponent.extend({
   name: "Book hotel",
   states: {
     done: {
-      onEvent: {
-        UNDO: ops.createTask({ machine: cancelHotel }),
-      },
+      UNDO: ops.createTask({ machine: cancelHotel }),
     },
   },
 });

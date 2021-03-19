@@ -14,25 +14,23 @@ export const chainedWorkflowMachine = createBaseMachine({
   initial: "done",
   states: {
     done: {
-      onEvent: {
-        ENTER: ops.createSubTask({
-          machine: processNextTaskMachine,
+      ENTER: ops.createSubTask({
+        machine: processNextTaskMachine,
+      }),
+      SUBTREE_UPDATE: [
+        ops.condition({
+          when: subtreeEndWithFailure,
+          then: ops.createRootTask({
+            machine: workflowFailureMachine,
+          }),
         }),
-        SUBTREE_UPDATE: [
-          ops.condition({
-            when: subtreeEndWithFailure,
-            then: ops.createRootTask({
-              machine: workflowFailureMachine,
-            }),
+        ops.condition({
+          when: subtreeEndWithSuccess,
+          then: ops.createRootTask({
+            machine: workflowSuccessMachine,
           }),
-          ops.condition({
-            when: subtreeEndWithSuccess,
-            then: ops.createRootTask({
-              machine: workflowSuccessMachine,
-            }),
-          }),
-        ],
-      },
+        }),
+      ],
     },
   },
 });

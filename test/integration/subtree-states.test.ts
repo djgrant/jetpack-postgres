@@ -24,9 +24,7 @@ describe("subtree states", () => {
       maxAttempts: 1,
       states: {
         done: {
-          onEvent: {
-            ENTER: ops.createSubTask({ machine: subTaskMachine }),
-          },
+          ENTER: ops.createSubTask({ machine: subTaskMachine }),
         },
       },
     });

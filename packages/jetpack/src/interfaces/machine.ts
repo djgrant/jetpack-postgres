@@ -1,9 +1,7 @@
 import { Operator } from "./operators";
 
 export interface Transitions {
-  [state: string]: {
-    onEvent?: TransitionMap;
-  };
+  [state: string]: TransitionMap;
 }
 
 export interface TransitionMap {

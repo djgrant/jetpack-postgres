@@ -29,30 +29,20 @@ export const createTaskMachine = ({
     states: {
       ...states,
       ready: {
-        onEvent: {
-          LOCKED_BY_WORKER: "running",
-          ...states?.ready?.onEvent,
-        },
+        LOCKED_BY_WORKER: "running",
+        ...states?.ready,
       },
       running: {
-        onEvent: {
-          ENTER: ops.incrementAttempts(),
-          ERROR: "failed",
-          SUCCESS: "done",
-          ...states?.running?.onEvent,
-        },
+        ENTER: ops.incrementAttempts(),
+        ERROR: "failed",
+        SUCCESS: "done",
+        ...states?.running,
       },
       failed: {
-        onEvent: {
-          ENTER: retry(maxAttempts),
-          ...states?.failed?.onEvent,
-        },
+        ENTER: retry(maxAttempts),
+        ...states?.failed,
       },
-      done: {
-        ...states?.done,
-      },
-      abandoned: {
-        ...states?.abandoned,
-      },
+      done: states?.done || {},
+      abandoned: states?.abandoned || {},
     },
   });

@@ -82,6 +82,7 @@ $$
 $$ 
 language sql stable;
 
+
 /*
   /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/triggers/on-insert-action-eval-transition.sql
 */
@@ -366,7 +367,7 @@ create function jetpack.eval_transition() returns trigger as $$
     }
 
     function beforeInsertAction() {
-        var _a, _b;
+        var _a;
         const { type, task_id } = NEW;
         const taskQuery = plv8.prepare("select * from jetpack.tasks where id = $1", ["bigint"]);
         const transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
@@ -380,7 +381,7 @@ create function jetpack.eval_transition() returns trigger as $$
         const [machine] = transitionsQuery.execute([task.machine_id]);
         if (!machine)
             return NEW;
-        const operation = (_b = (_a = machine.transitions[task.state]) === null || _a === void 0 ? void 0 : _a.onEvent) === null || _b === void 0 ? void 0 : _b[type];
+        const operation = (_a = machine.transitions[task.state]) === null || _a === void 0 ? void 0 : _a[type];
         if (!operation)
             return NEW;
         const operations = [].concat(operation);
@@ -426,11 +427,10 @@ create function jetpack.eval_enter_transition() returns trigger as $$
   }
 
   function onNewTaskState() {
-      var _a;
       const transitionsQuery = plv8.prepare("select transitions from jetpack.machines where id = $1", ["uuid"]);
       const [machine] = transitionsQuery.execute([NEW.machine_id]);
-      const onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[NEW.state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
-      if ("ENTER" in onEvent) {
+      const transitionMap = (machine === null || machine === void 0 ? void 0 : machine.transitions[NEW.state]) || {};
+      if ("ENTER" in transitionMap) {
           dispatchAction(NEW.id, "ENTER");
       }
       return null;
@@ -582,7 +582,6 @@ create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_st
   }
 
   function evalSubtreeActions() {
-      var _a;
       if (Number(subtree_state.task_id) === 0)
           return null;
       const machineQuery = plv8.prepare(`select m.*, t.state as task_state from jetpack.machines m
@@ -590,8 +589,8 @@ create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_st
     on t.machine_id = m.id
     and t.id = $1`, ["bigint"]);
       const [machine] = machineQuery.execute([subtree_state.task_id]);
-      const onEvent = ((_a = machine === null || machine === void 0 ? void 0 : machine.transitions[machine.task_state]) === null || _a === void 0 ? void 0 : _a.onEvent) || {};
-      if ("SUBTREE_UPDATE" in onEvent) {
+      const transitionMap = (machine === null || machine === void 0 ? void 0 : machine.transitions[machine.task_state]) || {};
+      if ("SUBTREE_UPDATE" in transitionMap) {
           dispatchAction(subtree_state.task_id, "SUBTREE_UPDATE");
       }
       return null;

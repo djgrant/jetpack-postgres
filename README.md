@@ -360,18 +360,15 @@ export const bookHoliday = createBaseMachine({
       ],
     },
     done: {
-      SUBTREE_UPDATE: [
+      SUBTREE_FLUSHED: [
         ops.cond({
-          when: ops.children.all("done"),
+          when: ops.subtree.all("done"),
           then: ops.createRootTask({
             machine: late(() => onBookingSuccess),
           }),
         }),
         ops.cond({
-          when: ops.all(
-            ops.children.all("done", "abandoned"),
-            ops.children.some("abandoned")
-          ),
+          when: ops.subtree.some("abandoned"),
           then: ops.createRootTask({
             machine: late(() => onBookingFailure),
           }),
@@ -380,18 +377,6 @@ export const bookHoliday = createBaseMachine({
     },
   },
 });
-
-// Implementation of ops.children looks like this
-const children = {
-  count: (state: string) => ({ type: "children_state_count", state }),
-  all: (...states: string[]) =>
-    ops.eq(
-      ops.sum(states.map(state => ops.children.count(state))),
-      ops.children.count("total")
-    ),
-  some: (...states: string[]) =>
-    ops.any(states.map(state => ops.gte(ops.children.count(state), 1))),
-};
 
 // Create a base task machine for bookCar and bookHotel's common functionality
 export const bookHolidayComponent = createTaskMachine({

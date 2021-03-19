@@ -2,13 +2,6 @@ import { createBaseMachine, ops } from "@djgrant/jetpack";
 import { fetchDataMachine } from "./fetch-data";
 import { workflowFailureMachine, workflowSuccessMachine } from "./on-complete";
 
-const subtreeEndWithSuccess = ops.subtree.all("done");
-
-const subtreeEndWithFailure = ops.all(
-  ops.subtree.all("done", "abandoned"),
-  ops.subtree.some("abandoned")
-);
-
 export const nestedWorkflowMachine = createBaseMachine({
   name: "Nested workflow",
   initial: "done",
@@ -17,15 +10,15 @@ export const nestedWorkflowMachine = createBaseMachine({
       ENTER: ops.createSubTask({
         machine: fetchDataMachine,
       }),
-      SUBTREE_UPDATE: [
+      SUBTREE_FLUSHED: [
         ops.condition({
-          when: subtreeEndWithFailure,
+          when: ops.subtree.some("abandoned"),
           then: ops.createRootTask({
             machine: workflowFailureMachine,
           }),
         }),
         ops.condition({
-          when: subtreeEndWithSuccess,
+          when: ops.subtree.all("done"),
           then: ops.createRootTask({
             machine: workflowSuccessMachine,
           }),

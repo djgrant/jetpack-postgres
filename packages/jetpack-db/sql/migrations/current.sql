@@ -593,7 +593,21 @@ create function jetpack.dispatch_subtree_action(subtree_state jetpack.subtree_st
       if ("SUBTREE_UPDATE" in transitionMap) {
           dispatchAction(subtree_state.task_id, "SUBTREE_UPDATE");
       }
+      if ("SUBTREE_FLUSHED" in transitionMap) {
+          const subtreeQuery = plv8.prepare(`select * from jetpack.get_subtree_states_agg($1)`, ["bigint"]);
+          const subtreeStates = subtreeQuery.execute([subtree_state.task_id]);
+          const subtree = {};
+          for (const row of subtreeStates) {
+              subtree[row.state] = row.descendants;
+          }
+          if (subtree.total === sum(subtree.done, subtree.abandoned)) {
+              dispatchAction(subtree_state.task_id, "SUBTREE_FLUSHED");
+          }
+      }
       return null;
+  }
+  function sum(a, b) {
+      return (a || 0) + (b || 0);
   }
 
   return evalSubtreeActions;

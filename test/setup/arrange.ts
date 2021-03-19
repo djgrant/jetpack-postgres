@@ -25,9 +25,9 @@ export async function migrate() {
 }
 
 export async function setupJetpack(opts: Omit<JetpackOptions, "db">) {
-  await migrate();
   return new Jetpack({
     db: connectionString,
+    logger: () => {},
     ...opts,
   });
 }

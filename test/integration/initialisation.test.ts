@@ -26,7 +26,7 @@ describe("initialisation", () => {
 
     expect(machinesTable.rowCount).toEqual(1);
     expect(machinesTable.rows[0]).toMatchObject({
-      id: "2ffc0a6a-0aac-53d3-896f-b0ce3d788dd5",
+      id: "45b65ee3-26e3-5d70-b779-bcf943389854",
       name: "Test Task",
     });
   });
@@ -49,11 +49,11 @@ describe("initialisation", () => {
 
     expect(machinesTable.rowCount).toEqual(2);
     expect(machinesTable.rows[0]).toMatchObject({
-      id: "2ffc0a6a-0aac-53d3-896f-b0ce3d788dd5",
+      id: "45b65ee3-26e3-5d70-b779-bcf943389854",
       name: "Test Task",
     });
     expect(machinesTable.rows[1]).toMatchObject({
-      id: "b4109c46-4c37-597c-8b41-9d01ffdd84b5",
+      id: "6ec6a853-b0ff-5cac-ab6c-fc5dcbec67ae",
       name: "Test Task",
     });
   });
@@ -76,11 +76,11 @@ describe("initialisation", () => {
 
     expect(machinesTable.rowCount).toEqual(2);
     expect(machinesTable.rows[0]).toMatchObject({
-      id: "2ffc0a6a-0aac-53d3-896f-b0ce3d788dd5",
+      id: "45b65ee3-26e3-5d70-b779-bcf943389854",
       name: "Test Task",
     });
     expect(machinesTable.rows[1]).toMatchObject({
-      id: "b4109c46-4c37-597c-8b41-9d01ffdd84b5",
+      id: "6ec6a853-b0ff-5cac-ab6c-fc5dcbec67ae",
       name: "Test Task",
     });
   });

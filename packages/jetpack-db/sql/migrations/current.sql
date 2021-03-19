@@ -84,6 +84,22 @@ language sql stable;
 
 
 /*
+  /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/functions/rerun-taskq.sql
+*/
+drop function if exists jetpack.rerun_task cascade;
+
+create function jetpack.rerun_task(task_id bigint) returns jetpack.tasks as $$
+begin
+  update jetpack.tasks 
+  set state = 'ready'
+  where id = task_id
+  and state in ('done', 'abadnoned')
+  returning *;
+end
+$$ language plpgsql volatile;
+
+
+/*
   /Users/danielgrant/Sites/djgrant/jetpack/packages/jetpack-db/sql/triggers/on-insert-action-eval-transition.sql
 */
 drop function if exists jetpack.eval_transition cascade;

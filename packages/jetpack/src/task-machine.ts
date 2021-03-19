@@ -4,7 +4,7 @@ import * as ops from "./operators";
 
 export interface TaskMachineOptions {
   name: string;
-  maxAttempts: number;
+  maxAttempts?: number;
   states?: Transitions;
   task?: Task;
 }
@@ -18,7 +18,7 @@ const retry = (maxAttempts: number) =>
 
 export const createTaskMachine = ({
   name,
-  maxAttempts,
+  maxAttempts = 1,
   states,
   task,
 }: TaskMachineOptions) =>
@@ -42,7 +42,13 @@ export const createTaskMachine = ({
         ENTER: retry(maxAttempts),
         ...states?.failed,
       },
-      done: states?.done || {},
-      abandoned: states?.abandoned || {},
+      done: {
+        RERUN_TASK: "ready",
+        ...states?.done,
+      },
+      abandoned: {
+        RETRY_TASK: "ready",
+        ...states?.abandoned,
+      },
     },
   });

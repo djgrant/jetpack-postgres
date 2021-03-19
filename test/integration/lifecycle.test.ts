@@ -77,6 +77,4 @@ describe("machine", () => {
       },
     ]);
   });
-
-  it.todo("dispatches an EXIT action when specified");
 });

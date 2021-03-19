@@ -1,15 +1,12 @@
-export type Primitive = string | number | boolean | null;
-
 export type Operator = EffectOperator | ExpressionOperator;
 
-export type ExpressionOperator =
-  | Primitive
-  | ComparisonOperator
-  | ConditionOperator
-  | GetterOperator
-  | ArithmeticOperator
-  | LogicalOperator
-  | ValueOperator;
+export type EvaluatedEffectOperator =
+  | EvaluatedCreateTaskOperator
+  | EvaluatedDispatchOperator
+  | ChangeStateOperator
+  | ErrorOperator
+  | IncrementAttemptsOperator
+  | NoOpOperator;
 
 export type EffectOperator =
   | string
@@ -22,6 +19,14 @@ export type EffectOperator =
   | ErrorOperator
   | IncrementAttemptsOperator
   | NoOpOperator;
+
+export type ExpressionOperator =
+  | Primitive
+  | ComparisonOperator
+  | ConditionOperator
+  | GetterOperator
+  | ArithmeticOperator
+  | LogicalOperator;
 
 export type ComparisonOperator =
   | LteOperator
@@ -42,9 +47,37 @@ export type GetterOperator =
   | DepthOperator
   | SubtreeStateCountOperator;
 
-export interface ValueOperator {
-  type: "value";
-  value: Primitive;
+// Value
+export type Primitive = string | number | boolean | null;
+
+export type ExpressionMap = {
+  [key: string]: ExpressionOperator | ExpressionMap | Primitive;
+};
+
+export type Payload = ExpressionOperator | ExpressionMap | Primitive;
+
+// Getter
+export interface ParamsOperator {
+  type: "params";
+  path?: string;
+}
+
+export interface ContextOperator {
+  type: "context";
+  path?: string;
+}
+
+export interface AttemptsOperator {
+  type: "attempts";
+}
+
+export interface DepthOperator {
+  type: "depth";
+}
+
+export interface SubtreeStateCountOperator {
+  type: "subtree_state_count";
+  state: string;
 }
 
 // Condition
@@ -107,31 +140,7 @@ export interface SumOperator {
   values: (number | ExpressionOperator)[];
 }
 
-// Getter
-export interface ParamsOperator {
-  type: "params";
-  path?: string;
-}
-
-export interface ContextOperator {
-  type: "context";
-  path?: string;
-}
-
-export interface AttemptsOperator {
-  type: "attempts";
-}
-
-export interface DepthOperator {
-  type: "depth";
-}
-
-export interface SubtreeStateCountOperator {
-  type: "subtree_state_count";
-  state: string;
-}
-
-// Effects
+// Effect
 export interface NoOpOperator {
   type: "no_op";
   operation?: Operator;
@@ -154,31 +163,54 @@ export interface IncrementAttemptsOperator {
 export interface CreateSubTaskOperator {
   type: "create_sub_task";
   machine_id: string;
-  params?: {};
-  context?: {};
+  params?: ExpressionMap;
+  context?: ExpressionMap;
 }
 
 export interface CreateRootTaskOperator {
   type: "create_root_task";
   machine_id: string;
-  params?: {};
-  context?: {};
+  params?: ExpressionMap;
+  context?: ExpressionMap;
 }
 
 export interface DispatchActionToRootOperator {
   type: "dispatch_action_to_root";
   action: string;
-  payload?: any;
+  payload?: Payload;
 }
 
 export interface DispatchActionToParentOperator {
   type: "dispatch_action_to_parent";
   action: string;
-  payload?: any;
+  payload?: Payload;
 }
 
 export interface DispatchActionToSiblingsOperator {
   type: "dispatch_action_to_siblings";
   action: string;
-  payload?: any;
+  payload?: Payload;
+}
+
+// Evaluated
+export type EvaluatedExpressionMap = {
+  [key: string]: Primitive | EvaluatedExpressionMap;
+};
+
+export type EvaluatedPayload = Primitive | EvaluatedExpressionMap;
+
+export interface EvaluatedDispatchOperator {
+  type:
+    | "dispatch_action_to_root"
+    | "dispatch_action_to_parent"
+    | "dispatch_action_to_siblings";
+  action: string;
+  payload?: EvaluatedPayload;
+}
+
+export interface EvaluatedCreateTaskOperator {
+  type: "create_sub_task" | "create_root_task";
+  machine_id: string;
+  params?: EvaluatedExpressionMap;
+  context?: EvaluatedExpressionMap;
 }

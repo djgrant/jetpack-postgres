@@ -13,6 +13,7 @@ import {
   DispatchActionToSiblingsOperator,
   EqOperator,
   ErrorOperator,
+  ExpressionMap,
   ExpressionOperator,
   GteOperator,
   GtOperator,
@@ -24,18 +25,12 @@ import {
   NotOperator,
   Operator,
   ParamsOperator,
-  Primitive,
+  Payload,
   SubtreeStateCountOperator,
   SumOperator,
-  ValueOperator,
 } from "./interfaces/operators";
 
 // Getters
-export const value = (value: Primitive): ValueOperator => ({
-  type: "value",
-  value,
-});
-
 export const self = () => ({
   id: "$self",
 });
@@ -174,8 +169,8 @@ export const changeState = (newState: string): ChangeStateOperator => ({
 
 export const createSubTask = (opts: {
   machine: { id: string };
-  params?: {};
-  context?: {};
+  params?: ExpressionMap;
+  context?: ExpressionMap;
 }): CreateSubTaskOperator => ({
   type: "create_sub_task",
   machine_id: opts.machine.id,
@@ -185,8 +180,8 @@ export const createSubTask = (opts: {
 
 export const createRootTask = (opts: {
   machine: { id: string };
-  params?: {};
-  context?: {};
+  params?: ExpressionMap;
+  context?: ExpressionMap;
 }): CreateRootTaskOperator => ({
   type: "create_root_task",
   machine_id: opts.machine.id,
@@ -200,7 +195,7 @@ export const incrementAttempts = (): IncrementAttemptsOperator => ({
 
 export const dispatchActionToRoot = (
   action: string,
-  payload?: {}
+  payload?: Payload
 ): DispatchActionToRootOperator => ({
   type: "dispatch_action_to_root",
   action,
@@ -209,7 +204,7 @@ export const dispatchActionToRoot = (
 
 export const dispatchActionToSiblings = (
   action: string,
-  payload?: {}
+  payload?: Payload
 ): DispatchActionToSiblingsOperator => ({
   type: "dispatch_action_to_siblings",
   action,
@@ -218,7 +213,7 @@ export const dispatchActionToSiblings = (
 
 export const dispatchActionToParent = (
   action: string,
-  payload?: {}
+  payload?: Payload
 ): DispatchActionToParentOperator => ({
   type: "dispatch_action_to_parent",
   action,

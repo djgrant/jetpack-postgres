@@ -1,7 +1,11 @@
-import { EffectOperator, TaskRow } from "@djgrant/jetpack";
+import {
+  TaskRow,
+  EvaluatedEffectOperator,
+  EvaluatedExpressionMap,
+} from "@djgrant/jetpack";
 import { createTask } from "../queries/create-task";
 
-export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
+export function runEffect(op: EvaluatedEffectOperator, task: TaskRow) {
   if (op.type === "change_state") {
     task.state = op.new_state;
     return task;
@@ -17,7 +21,7 @@ export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
       machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
       parent_id: task.id,
       params: op.params,
-      context: { ...task.context, ...op.context },
+      context: mergeContext(task.context, op.context),
     });
     return null;
   }
@@ -33,4 +37,11 @@ export function runEffect(op: Exclude<EffectOperator, string>, task: TaskRow) {
   }
 
   return null;
+}
+
+function mergeContext(
+  oldContext: EvaluatedExpressionMap,
+  newContext: EvaluatedExpressionMap | undefined
+) {
+  return { ...oldContext, ...newContext };
 }

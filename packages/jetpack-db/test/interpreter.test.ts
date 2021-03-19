@@ -14,7 +14,7 @@ const task: TaskRow = {
   parent_id: null,
   path: "1",
   machine_id: "guid",
-  params: {},
+  params: { a: "param" },
   context: {},
   attempts: 2,
   state: "pending",
@@ -23,7 +23,7 @@ const task: TaskRow = {
 const PASS = ops.changeState("pass");
 const FAIL = ops.changeState("fail");
 const NOOP = ops.noOp();
-const noOpValue = (v: any) => ops.noOp(ops.value(v));
+const noOpValue = (v: any) => ops.noOp(v);
 
 describe("syntatic sugar", () => {
   it("returns a string as change_state operator", () => {
@@ -36,19 +36,14 @@ describe("syntatic sugar", () => {
 describe("illegal operations", () => {
   it("returns an error when an effect is passed instead of a value", () => {
     const testCases = [
-      ops.dispatchActionToRoot(
-        "TEST",
-        ops.createSubTask({ machine: ops.self() })
-      ),
       ops.eq(
-        ops.value(1),
+        1,
         ops.condition({
           when: true,
           then: ops.createSubTask({ machine: { id: "$self" } }),
         })
       ),
     ];
-
     testCases.forEach(operation => {
       const result = evaluateOperation(operation, task);
       expect(result).toEqual(
@@ -61,8 +56,7 @@ describe("illegal operations", () => {
     const operations = [
       null,
       1,
-      ops.value("pass"),
-      ops.value(null),
+      null,
       ops.eq(1, 2),
       ops.condition({ when: true, then: 1 }),
     ];
@@ -103,19 +97,35 @@ describe("effects", () => {
     expect(result).toEqual(ops.dispatchActionToParent("TEST", 1));
   });
 
-  it("unpacks expressions inside actions", () => {
+  it("unpacks expressions inside action effects", () => {
     const testCases = [
       [
-        ops.dispatchActionToParent("TEST", ops.value(1)),
-        ops.dispatchActionToParent("TEST", 1),
-      ],
-      [
-        ops.dispatchActionToRoot("TEST", ops.value("hello")),
-        ops.dispatchActionToRoot("TEST", "hello"),
+        ops.dispatchActionToRoot("TEST", ops.params("a")),
+        ops.dispatchActionToRoot("TEST", "param"),
       ],
       [
         ops.dispatchActionToSiblings("TEST", ops.eq(1, 2)),
         ops.dispatchActionToSiblings("TEST", false),
+      ],
+    ];
+
+    testCases.forEach(([operation, expected]) => {
+      const result = evaluateOperation(operation, task);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  it("unpacks expressions inside task creation effects", () => {
+    const testCases = [
+      [
+        ops.createSubTask({
+          machine: { id: "guid" },
+          context: { a: ops.eq(1, 2) },
+        }),
+        ops.createSubTask({
+          machine: { id: "guid" },
+          context: { a: false },
+        }),
       ],
     ];
 
@@ -219,7 +229,6 @@ describe("logical operators", () => {
     const testCases = [
       { args: [ops.eq(2, 2)], expected: true },
       { args: [ops.eq(1, 2)], expected: false },
-      { args: [ops.value(false)], expected: false },
       { args: [false], expected: false },
       { args: [true], expected: true },
       { args: [true, true], expected: true },
@@ -239,7 +248,6 @@ describe("logical operators", () => {
     const testCases = [
       { args: [ops.eq(2, 2)], expected: true },
       { args: [ops.eq(1, 2)], expected: false },
-      { args: [ops.value(false)], expected: false },
       { args: [false], expected: false },
       { args: [true], expected: true },
       { args: [true, true], expected: true },
@@ -259,9 +267,8 @@ describe("logical operators", () => {
     const testCases = [
       { value: true, expected: false },
       { value: 1, expected: false },
-      { value: ops.value(1), expected: false },
-      { value: ops.value(0), expected: true },
-      { value: ops.value(null), expected: true },
+      { value: 0, expected: true },
+      { value: null, expected: true },
       {
         value: ops.eq(1, 2),
         expected: true,

@@ -92,10 +92,6 @@ create function jetpack.eval_transition() returns trigger as $$
     'use strict';
 
     // Getters
-    const value = (value) => ({
-        type: "value",
-        value,
-    });
     // Effects
     const noOp = (operation) => ({
         type: "no_op",
@@ -109,21 +105,6 @@ create function jetpack.eval_transition() returns trigger as $$
         type: "change_state",
         new_state: newState,
     });
-    const dispatchActionToRoot = (action, payload) => ({
-        type: "dispatch_action_to_root",
-        action,
-        payload,
-    });
-    const dispatchActionToSiblings = (action, payload) => ({
-        type: "dispatch_action_to_siblings",
-        action,
-        payload,
-    });
-    const dispatchActionToParent = (action, payload) => ({
-        type: "dispatch_action_to_parent",
-        action,
-        payload,
-    });
 
     function evaluateOperation(operation, task) {
         try {
@@ -136,20 +117,42 @@ create function jetpack.eval_transition() returns trigger as $$
     function evaluateOperator(operator, task) {
         const cache = {};
         const evaluatedOperation = evalOp(operator);
+        if (typeof evaluatedOperation === "string") {
+            return changeState(evaluatedOperation);
+        }
         if (isEffectOperator(evaluatedOperation)) {
-            if (typeof evaluatedOperation === "string") {
-                return changeState(evaluatedOperation);
-            }
             return evaluatedOperation;
         }
         return noOp(evaluatedOperation);
         function evalOpAsValue(op) {
-            const valueOp = evalOp(op);
-            if (isPrimitive(valueOp))
-                return value(valueOp);
-            if (isValueOperator(valueOp))
-                return valueOp;
+            const value = evalOp(op);
+            if (isPrimitive(value))
+                return value;
             throw new Error("Operator must ulimately return a value type");
+        }
+        function evalExpressionMap(expressionMap) {
+            return Object.entries(expressionMap).reduce((acc, [key, value]) => {
+                let v;
+                if (isPrimitive(value)) {
+                    v = value;
+                }
+                else if (isExpressionOperator(value)) {
+                    v = evalOpAsValue(value);
+                }
+                else {
+                    v = evalExpressionMap(value);
+                }
+                return Object.assign(Object.assign({}, acc), { [key]: v });
+            }, {});
+        }
+        function evalPayload(payload) {
+            if (isPrimitive(payload)) {
+                return payload;
+            }
+            if (isExpressionOperator(payload)) {
+                return evalOpAsValue(payload);
+            }
+            return evalExpressionMap(payload);
         }
         function evalOp(op) {
             var _a, _b;
@@ -159,7 +162,7 @@ create function jetpack.eval_transition() returns trigger as $$
             // Logical
             if (op.type === "condition") {
                 const when = evalOpAsValue(op.when);
-                const passed = Boolean(when.value);
+                const passed = Boolean(when);
                 if (!passed) {
                     return typeof op.else !== "undefined" ? evalOp(op.else) : noOp();
                 }
@@ -170,65 +173,65 @@ create function jetpack.eval_transition() returns trigger as $$
                 const left = evalOpAsValue(op.left);
                 const right = evalOpAsValue(op.right);
                 if (op.type === "eq") {
-                    return value(left.value === right.value);
+                    return left === right;
                 }
                 if (op.type === "not_eq") {
-                    return value(left.value !== right.value);
+                    return left !== right;
                 }
                 // Numeric
-                if (typeof left.value !== "number" || typeof right.value !== "number") {
-                    return value(false);
+                if (typeof left !== "number" || typeof right !== "number") {
+                    return false;
                 }
                 if (op.type === "lte") {
-                    return value(left.value <= right.value);
+                    return left <= right;
                 }
                 if (op.type === "lt") {
-                    return value(left.value < right.value);
+                    return left < right;
                 }
                 if (op.type === "gte") {
-                    return value(left.value >= right.value);
+                    return left >= right;
                 }
                 if (op.type === "gt") {
-                    return value(left.value > right.value);
+                    return left > right;
                 }
             }
             // Logical
             if (op.type === "any") {
-                const valueOperators = op.values.map(evalOpAsValue);
-                return value(valueOperators.some(valueOperator => Boolean(valueOperator.value)));
+                const values = op.values.map(evalOpAsValue);
+                return values.some(valueOperator => Boolean(valueOperator));
             }
             if (op.type === "all") {
-                const valueOperators = op.values.map(evalOpAsValue);
-                return value(valueOperators.every(valueOperator => Boolean(valueOperator.value)));
+                const values = op.values.map(evalOpAsValue);
+                return values.every(valueOperator => Boolean(valueOperator));
             }
             if (op.type === "not") {
                 const valueOperator = evalOpAsValue(op.value);
-                return value(!Boolean(valueOperator.value));
+                return !Boolean(valueOperator);
             }
             // Arithmetic
             if (op.type === "sum") {
-                const numberOperators = op.values.map(evalOpAsValue);
+                const nums = op.values.map(evalOpAsValue);
                 let total = 0;
-                for (const numberOperator of numberOperators) {
-                    if (typeof numberOperator.value !== "number") {
+                for (const num of nums) {
+                    if (typeof num !== "number") {
                         throw new Error("Value operator must contain a number");
                     }
-                    total += numberOperator.value;
+                    total += num;
                 }
-                return value(total);
+                return total;
             }
             // Getters
             if (op.type === "params") {
-                return value(op.path ? task.params[op.path] : task.params);
+                return op.path ? task.params[op.path] : task.params;
             }
             if (op.type === "context") {
-                return value(op.path ? task.context[op.path] : task.context);
+                return op.path ? task.context[op.path] : task.context;
             }
             if (op.type === "attempts") {
-                return value(task.attempts);
+                return task.attempts;
             }
             if (op.type === "depth") {
-                return value(task.path.split(".").length);
+                return task.path.split(".").length;
             }
             if (op.type === "subtree_state_count") {
                 if (!cache.subtree) {
@@ -239,39 +242,37 @@ create function jetpack.eval_transition() returns trigger as $$
                         cache.subtree[row.state] = row.descendants;
                     }
                 }
-                return value(((_a = cache.subtree) === null || _a === void 0 ? void 0 : _a[op.state]) || 0);
+                return ((_a = cache.subtree) === null || _a === void 0 ? void 0 : _a[op.state]) || 0;
             }
             // Actions
             if ("action" in op) {
-                const action = (_b = evalOpAsValue(op.action).value) === null || _b === void 0 ? void 0 : _b.toString();
-                const payload = op.payload && evalOpAsValue(op.payload).value;
+                const action = (_b = evalOpAsValue(op.action)) === null || _b === void 0 ? void 0 : _b.toString();
+                const payload = op.payload && evalPayload(op.payload);
                 if (!action)
                     return null;
-                if (op.type === "dispatch_action_to_parent") {
-                    return dispatchActionToParent(action, payload);
-                }
-                if (op.type === "dispatch_action_to_root") {
-                    return dispatchActionToRoot(action, payload);
-                }
-                if (op.type === "dispatch_action_to_siblings") {
-                    return dispatchActionToSiblings(action, payload);
-                }
+                return Object.assign(Object.assign({}, op), { action, payload });
+            }
+            // Create task
+            if ("context" in op || "params" in op) {
+                const params = op.params && evalExpressionMap(op.params);
+                const context = op.context && evalExpressionMap(op.context);
+                return Object.assign(Object.assign({}, op), { params, context });
             }
             return op;
         }
     }
-    function isPrimitive(op) {
-        return typeof op !== "object" || op === null;
-    }
-    function isValueOperator(op) {
-        return typeof op === "object" && op !== null && op.type === "value";
+    function isPrimitive(value) {
+        return typeof value !== "object" || value === null;
     }
     function isEffectOperator(op) {
-        if (typeof op === "string")
-            return true;
         if (typeof op !== "object" || op === null)
             return false;
         return effectTypes.includes(op.type);
+    }
+    function isExpressionOperator(op) {
+        if (typeof op !== "object" || op === null)
+            return false;
+        return expressionTypes.includes(op.type);
     }
     const effectTypes = [
         "change_state",
@@ -283,6 +284,25 @@ create function jetpack.eval_transition() returns trigger as $$
         "error",
         "increment_attempts",
         "no_op",
+    ];
+    const expressionTypes = [
+        "all",
+        "any",
+        "attempts",
+        "condition",
+        "context",
+        "context",
+        "depth",
+        "eq",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "not",
+        "not_eq",
+        "params",
+        "subtree_state_count",
+        "sum",
     ];
 
     function createTask(task) {
@@ -310,7 +330,7 @@ create function jetpack.eval_transition() returns trigger as $$
                 machine_id: op.machine_id === "$self" ? task.machine_id : op.machine_id,
                 parent_id: task.id,
                 params: op.params,
-                context: Object.assign(Object.assign({}, task.context), op.context),
+                context: mergeContext(task.context, op.context),
             });
             return null;
         }
@@ -324,6 +344,9 @@ create function jetpack.eval_transition() returns trigger as $$
             return null;
         }
         return null;
+    }
+    function mergeContext(oldContext, newContext) {
+        return Object.assign(Object.assign({}, oldContext), newContext);
     }
 
     function updateTask(task) {

@@ -7,6 +7,7 @@ type Options = {
 };
 
 export class Execution {
+  task: TaskRow;
   id: string;
   params: any;
   context: any;
@@ -14,6 +15,7 @@ export class Execution {
   db: Db;
 
   constructor({ task, db }: Options) {
+    this.task = task;
     this.id = task.id;
     this.params = task.params;
     this.context = task.context;
@@ -22,7 +24,7 @@ export class Execution {
   }
 
   setContext = (patch: {}) => {
-    this.db.setTaskContext({ context: patch, taskId: this.id });
+    this.db.setTaskContext({ context: patch, task: this.task });
     return patch;
   };
 

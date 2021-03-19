@@ -1,10 +1,10 @@
-import { TaskRow } from "@djgrant/jetpack";
+import { TaskRow, EvaluatedExpressionMap } from "@djgrant/jetpack";
 
 interface TaskInput {
   machine_id: string;
   parent_id?: string | null;
-  params?: {};
-  context?: {};
+  params?: EvaluatedExpressionMap;
+  context?: EvaluatedExpressionMap;
 }
 
 export function createTask(task: TaskInput): TaskRow {

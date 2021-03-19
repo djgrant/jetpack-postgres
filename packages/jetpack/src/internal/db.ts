@@ -28,9 +28,12 @@ export class Db {
     ]);
   }
 
-  async setTaskContext(params: { context: {}; taskId: string }) {
+  async setTaskContext(params: { context: {}; task: TaskRow }) {
     const query = "update jetpack.tasks set context = $1 where id = $2";
-    await this.pool.query(query, [params.context, params.taskId]);
+    await this.pool.query(query, [
+      { ...params.task.context, ...params.context },
+      params.task.id,
+    ]);
   }
 
   async dispatchAction(actionType: string, taskId: string) {

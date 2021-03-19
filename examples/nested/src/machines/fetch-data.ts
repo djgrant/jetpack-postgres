@@ -9,7 +9,7 @@ export const fetchDataMachine = createTaskMachine({
     done: {
       onEvent: {
         ENTER: ops.condition({
-          when: ops.lte(ops.context("depth"), 10),
+          when: ops.lt(ops.depth(), 10),
           then: ops.createSubTask({ machine: ops.self() }),
         }),
       },

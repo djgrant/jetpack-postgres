@@ -6,6 +6,8 @@ const jetpack = new Jetpack({
   machines,
 });
 
-jetpack.createTask({ machine: machines.etlMachine }).catch(console.log);
+jetpack
+  .createTask({ machine: machines.chainedWorkflowMachine })
+  .catch(console.log);
 
 jetpack.runWorker();

@@ -1,6 +1,6 @@
 import { createBaseMachine, ops } from "@djgrant/jetpack";
-import { fetchDataMachine } from "./fetch-data";
-import { etlFailureMachine, etlSuccessMachine } from "./on-complete";
+import { processNextTaskMachine } from "./process-next-task";
+import { workflowFailureMachine, workflowSuccessMachine } from "./on-complete";
 
 const subtreeEndWithSuccess = ops.subtree.all("done");
 
@@ -9,27 +9,26 @@ const subtreeEndWithFailure = ops.all(
   ops.subtree.some("abandoned")
 );
 
-export const etlMachine = createBaseMachine({
-  name: "ETL",
+export const chainedWorkflowMachine = createBaseMachine({
+  name: "Chained workflow",
   initial: "done",
   states: {
     done: {
       onEvent: {
         ENTER: ops.createSubTask({
-          machine: fetchDataMachine,
-          context: { depth: 0 },
+          machine: processNextTaskMachine,
         }),
         SUBTREE_UPDATE: [
           ops.condition({
             when: subtreeEndWithFailure,
             then: ops.createRootTask({
-              machine: etlFailureMachine,
+              machine: workflowFailureMachine,
             }),
           }),
           ops.condition({
             when: subtreeEndWithSuccess,
             then: ops.createRootTask({
-              machine: etlSuccessMachine,
+              machine: workflowSuccessMachine,
             }),
           }),
         ],
